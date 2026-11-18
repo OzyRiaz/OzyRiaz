@@ -152,7 +152,8 @@ export async function connectOnboardAction() {
   const { rid, db } = await ctx();
   const r = (await db.get<Restaurant>('restaurants', { id: rid }))!;
   if (r.status !== 'approved') redirect('/dashboard/payments?error=Your+application+must+be+approved+first');
-  const { url } = await startConnectOnboarding(r);
+  let url: string;
+  try { ({ url } = await startConnectOnboarding(r)); } catch (e) { redirect(`/dashboard/payments?error=${encodeURIComponent((e as Error).message)}`); }
   redirect(url);
 }
 

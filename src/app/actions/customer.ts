@@ -91,7 +91,8 @@ export async function joinMembershipAction() {
   const s = await requireSession('/plus');
   const db = await getDb();
   const user = (await db.get<Profile>('profiles', { id: s.userId }))!;
-  const { url } = await startMembershipCheckout(user);
+  let url: string;
+  try { ({ url } = await startMembershipCheckout(user)); } catch (e) { redirect(`/plus?status=unavailable&msg=${encodeURIComponent((e as Error).message)}`); }
   redirect(url);
 }
 

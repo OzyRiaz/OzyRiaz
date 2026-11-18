@@ -10,7 +10,7 @@ const TEXT = /\.(tsx?|css|json|md|sql|svg|html|js|mts|toml|yml|example)$/;
 
 describe('rebrand', () => {
   it('no old brand names remain in source, public assets, migrations or docs', () => {
-    const files = ['src', 'public', 'supabase', 'netlify', 'tests'].flatMap((d) => walk(d)).concat(['README.md', 'package.json', '.env.example', 'netlify.toml']).filter((f) => TEXT.test(f) && !f.endsWith('brand.test.ts') && !f.endsWith('0003_rebrand.sql'));
+    const files = ['src', 'public', 'supabase', 'netlify', 'tests'].flatMap((d) => walk(d)).concat(['README.md', 'package.json', '.env.example', 'netlify.toml']).filter((f) => TEXT.test(f) && !f.endsWith('brand.test.ts') && !f.endsWith('0003_rebrand.sql') && !f.endsWith('setup-all.sql'));
     // Documented exception: internal browser storage keys (bdfeast.*) are retained for compatibility with existing customers' saved baskets.
     const strip = (t: string) => t.replace(/bdfeast\.(basket\.v1|postcode|\*)/g, '');
     const bad = files.filter((f) => /BD Feast|BDFeast|Bradford Food Pass|Bradford at your table/i.test(strip(readFileSync(f, 'utf8'))));

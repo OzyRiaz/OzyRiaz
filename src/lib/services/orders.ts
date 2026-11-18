@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { appUrl, demoPaymentsEnabled, isDemo } from '../config';
+import { appUrl, demoPaymentsEnabled, isDemo, PAYMENTS_OFF_MESSAGE, stripeConfigured } from '../config';
 import { DuplicateError, getDb } from '../db';
 import { fmt } from '../money';
 import { canTransition, STATUS_LABEL } from '../order-state';
@@ -71,6 +71,7 @@ export async function createPaymentSession(order: Order, customerEmail: string):
   if (order.payment_status === 'paid') throw new OrderError('This order is already paid');
   const restaurant = (await db.get<Restaurant>('restaurants', { id: order.restaurant_id }))!;
   if (demoPaymentsEnabled()) return { url: `/checkout/demo?order=${order.id}` };
+  if (!stripeConfigured()) throw new OrderError(PAYMENTS_OFF_MESSAGE);
   if (!restaurant.stripe_account_id || !restaurant.stripe_charges_enabled) throw new OrderError('Restaurant payments are not enabled');
   const stripe = getStripe();
   const line_items = order.lines.map((l) => ({

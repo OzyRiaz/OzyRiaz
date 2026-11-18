@@ -1,4 +1,4 @@
-import { appUrl, demoPaymentsEnabled } from '../config';
+import { appUrl, demoPaymentsEnabled, PAYMENTS_OFF_MESSAGE, stripeConfigured } from '../config';
 import { getDb } from '../db';
 import { getStripe } from '../stripe';
 import type { Restaurant } from '../types';
@@ -10,6 +10,7 @@ export async function startConnectOnboarding(r: Restaurant): Promise<{ url: stri
     await db.update('restaurants', { id: r.id }, { stripe_account_id: r.stripe_account_id ?? `acct_demo_${r.slug}`, stripe_details_submitted: true, stripe_charges_enabled: true, stripe_payouts_enabled: true });
     return { url: '/dashboard/payments?demo_onboarded=1' };
   }
+  if (!stripeConfigured()) throw new Error(PAYMENTS_OFF_MESSAGE);
   const stripe = getStripe();
   let acct = r.stripe_account_id;
   if (!acct) {

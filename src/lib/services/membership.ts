@@ -1,4 +1,4 @@
-import { appUrl, demoPaymentsEnabled } from '../config';
+import { appUrl, demoPaymentsEnabled, PAYMENTS_OFF_MESSAGE, stripeConfigured } from '../config';
 import { getDb } from '../db';
 import { getStripe } from '../stripe';
 import type { Membership, Profile } from '../types';
@@ -23,6 +23,7 @@ export async function startMembershipCheckout(user: Profile): Promise<{ url: str
   if (demoPaymentsEnabled()) {
     return { url: '/plus/demo' };
   }
+  if (!stripeConfigured()) throw new Error(PAYMENTS_OFF_MESSAGE);
   const stripe = getStripe();
   const settings = await getSettings();
   let m = await getMembership(user.id);

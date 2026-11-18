@@ -14,7 +14,7 @@ import type { Restaurant } from '@/lib/types';
 export const metadata: Metadata = { title: 'FeastQuarter Plus' };
 export const dynamic = 'force-dynamic';
 
-export default async function Plus({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function Plus({ searchParams }: { searchParams: Promise<{ status?: string; msg?: string }> }) {
   const sp = await searchParams;
   const [s, settings] = await Promise.all([getSession(), getSettings()]);
   const active = s ? await getActiveMembership(s.userId) : null;
@@ -29,6 +29,7 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
         <ul className="mt-5 space-y-2">{settings.membership_benefits.map((b) => <li key={b} className="flex gap-2 text-white/85"><Check className="mt-0.5 shrink-0 text-gold" size={18} />{b}</li>)}</ul>
         <div className="mt-7">
           {sp.status === 'success' && <div className="mb-4"><Notice tone="green">Thanks! We&apos;re confirming your membership with our payment provider — your benefits switch on as soon as that confirmation arrives.</Notice></div>}
+          {sp.status === 'unavailable' && <div className="mb-4"><Notice tone="gold">{sp.msg ?? 'Memberships are not available right now.'}</Notice></div>}
           {sp.status === 'cancelled' && <div className="mb-4"><Notice tone="gold">Checkout cancelled — you haven&apos;t been charged.</Notice></div>}
           {active ? <p className="font-semibold text-gold">✓ You&apos;re a member{active.cancel_at_period_end ? ` — ends ${new Date(active.current_period_end!).toLocaleDateString('en-GB')}` : active.current_period_end ? ` — renews ${new Date(active.current_period_end).toLocaleDateString('en-GB')}` : ''}</p>
             : !s ? <LinkButton href="/login?next=/plus" variant="gold" size="lg">Sign in to join</LinkButton>
