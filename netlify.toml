@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Scheduled function netlify/functions/daily-summary.mts triggers the admin
+# daily sales summary. Requires CRON_SECRET and URL env vars (see README).
