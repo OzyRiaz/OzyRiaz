@@ -99,7 +99,8 @@ export function BasketView() {
             <button className={btn('outline', 'sm')}>Apply</button>
           </form>
           <div className="mt-4"><Summary res={res} loading={loading} /></div>
-          <Link aria-disabled={!ok} href="/checkout" className={btn('primary', 'lg', clsx('mt-4 w-full', !ok && 'pointer-events-none opacity-50'))}>Go to checkout</Link>
+          <Link href="/checkout" className={btn('primary', 'lg', 'mt-4 w-full')}>Go to checkout</Link>
+          {res && !res.ok && <p className="mt-2 text-xs text-muted">Fix the message above first — you can still continue, and checkout will tell you what's missing.</p>}
           {res && !res.ok && prefs.fulfilment === 'delivery' && <p className="mt-2 text-xs text-muted">Not in their delivery area? <button className="font-semibold underline" onClick={() => setPrefs({ fulfilment: 'collection' })}>Switch to collection</button></p>}
         </Card>
       </aside>

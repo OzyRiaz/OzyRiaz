@@ -1,6 +1,7 @@
 import { Clock, Crown, MapPin, Phone, Info } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { RememberPostcode } from '@/components/RememberPostcode';
 import { MenuView } from '@/components/MenuView';
 import { Photo } from '@/components/FoodArt';
 import { Badge, Card, Container, Notice } from '@/components/ui';
@@ -31,6 +32,7 @@ export default async function RestaurantPage({ params, searchParams }: { params:
   const orderable = r.status === 'approved' && r.stripe_charges_enabled && availability !== 'unavailable';
   return (
     <>
+      <RememberPostcode postcode={postcode} />
       <div className="bg-navy">
         <Container className="grid gap-5 py-6 md:grid-cols-[1fr_auto] md:items-end md:py-10">
           <div>

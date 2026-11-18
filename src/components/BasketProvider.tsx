@@ -28,7 +28,7 @@ export function BasketProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(KEY); if (raw) setBasket(JSON.parse(raw));
       const p = localStorage.getItem(KEY + '.prefs'); const pc = localStorage.getItem('bdfeast.postcode');
-      setPrefsState((cur) => ({ ...cur, ...(p ? JSON.parse(p) : {}), ...(!p && pc ? { postcode: pc } : {}) }));
+      setPrefsState((cur) => { const saved = p ? JSON.parse(p) : {}; return { ...cur, ...saved, postcode: saved.postcode || pc || '' }; });
     } catch { /* storage blocked */ }
     setHydrated(true);
   }, []);
