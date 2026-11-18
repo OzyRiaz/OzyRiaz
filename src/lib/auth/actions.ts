@@ -22,7 +22,7 @@ const supa = async () => {
 };
 
 async function setDemoCookie(userId: string) {
-  (await cookies()).set(DEMO_COOKIE, signDemo(userId), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 7 * 86400 });
+  (await cookies()).set(DEMO_COOKIE, signDemo(userId), { httpOnly: true, sameSite: 'lax', secure: (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://'), path: '/', maxAge: 7 * 86400 });
 }
 
 export async function loginAction(_: FormState, fd: FormData): Promise<FormState> {

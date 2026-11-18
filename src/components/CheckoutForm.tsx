@@ -35,7 +35,7 @@ export function CheckoutForm({ addresses, phone, email, isDemo }: { addresses: A
         // Same basket + same details => same key => the server returns the existing order instead of creating a duplicate.
         idempotencyKey: orderKey(basket!, [prefs.fulfilment, address, prefs.promo, f.note]),
       });
-      if ('error' in r) setError(r.error); else window.location.assign(r.url);
+      if ('error' in r) { if (r.error.startsWith('Please sign in')) window.location.assign('/login?next=/checkout'); else setError(r.error); } else window.location.assign(r.url);
     });
   }
   // Keep the quote postcode aligned with the chosen saved address.

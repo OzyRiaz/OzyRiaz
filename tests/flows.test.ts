@@ -299,3 +299,11 @@ describe('suspended accounts', () => {
     expect(await sessionFor('customer@demo.bdfeast.test')).toBeTruthy();
   });
 });
+
+describe('demo sessions', () => {
+  it('demo user ids are stable across restarts so cookies stay valid', async () => {
+    const a = (await customer()).userId;
+    await freshDb();
+    expect((await customer()).userId).toBe(a);
+  });
+});

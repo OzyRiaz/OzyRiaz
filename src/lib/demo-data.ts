@@ -3,10 +3,14 @@
  * Every restaurant, menu, price and review-style detail here is fictional and exists so the
  * product can be developed and demoed. Nothing here represents a real business or partnership.
  */
+import { createHash } from 'node:crypto';
 import type { Db } from './db/types';
 import { hashPassword } from './password';
 import { computeTotals, priceLine } from './pricing';
 import type { MenuItem, OptionGroup, Restaurant } from './types';
+
+/** Stable ids so demo sign-in cookies survive a dev-server restart. */
+const stableId = (email: string) => { const h = createHash('sha1').update('bdfeast-demo:' + email).digest('hex'); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`; };
 
 export const DEMO_PASSWORD = 'DemoPass123!';
 export const DEMO_ACCOUNTS = {
@@ -172,7 +176,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
   await db.insert('platform_settings', DEFAULT_SETTINGS);
 
   const user = async (email: string, full_name: string, role: 'admin' | 'customer' | 'restaurant') => {
-    const p = await db.insert<{ id: string }>('profiles', { email, full_name, phone: null, role, suspended: false, deleted_at: null });
+    const p = await db.insert<{ id: string }>('profiles', { id: stableId(email), email, full_name, phone: null, role, suspended: false, deleted_at: null });
     await db.insert('demo_credentials', { user_id: p.id, email, password_hash: hashPassword(DEMO_PASSWORD) });
     return p;
   };
@@ -191,7 +195,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
     const owner = await db.get<{ id: string }>('profiles', { email }) ?? await user(email, `${r.name} Owner`, 'restaurant');
     const approved = (r.status ?? 'approved') === 'approved';
     const rest = await db.insert<Restaurant>('restaurants', mk({
-      owner_id: owner.id, slug: r.slug, name: r.name, description: r.desc, cuisines: r.cuisines, address_line1: r.line1, postcode: r.postcode,
+      id: stableId('restaurant:' + r.slug), owner_id: owner.id, slug: r.slug, name: r.name, description: r.desc, cuisines: r.cuisines, address_line1: r.line1, postcode: r.postcode,
       city_slug: 'bradford', phone: '01274 000000', email: email, image_url: null, status: r.status ?? 'approved', is_demo: true, featured: !!r.featured,
       opening_hours: Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map((d) => [d, [{ open: '09:00', close: '23:59' }]])) as unknown as Restaurant['opening_hours'], min_order_pence: r.min, prep_minutes: r.prep, delivery_enabled: r.delivery ?? true, collection_enabled: r.collection ?? true,
       member_offer: { enabled: !!r.memberPct, percent: r.memberPct ?? 0, min_spend_pence: 1500, description: 'Member-only saving on food' },
@@ -201,10 +205,10 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
     for (const a of r.areas) await db.insert('delivery_areas', { restaurant_id: rest.id, name: a.name, postcode_prefixes: a.prefixes, fee_pence: a.fee, min_order_pence: a.min ?? null });
     let ci = 0;
     for (const [cat, items] of Object.entries(r.menu)) {
-      const c = await db.insert<{ id: string }>('menu_categories', { restaurant_id: rest.id, name: cat, sort: ci++ });
+      const c = await db.insert<{ id: string }>('menu_categories', { id: stableId(`cat:${r.slug}:${cat}`), restaurant_id: rest.id, name: cat, sort: ci++ });
       let ii = 0;
       for (const [name, description, price_pence, allergens, dietary, opts] of items) {
-        await db.insert('menu_items', { restaurant_id: rest.id, category_id: c.id, name, description, price_pence, image_url: null, available: true, allergens, allergen_info_confirmed: true, dietary, option_groups: opts ?? [], sort: ii++ });
+        await db.insert('menu_items', { id: stableId(`item:${r.slug}:${cat}:${name}`), restaurant_id: rest.id, category_id: c.id, name, description, price_pence, image_url: null, available: true, allergens, allergen_info_confirmed: true, dietary, option_groups: opts ?? [], sort: ii++ });
       }
     }
   }
