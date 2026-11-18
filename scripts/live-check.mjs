@@ -33,6 +33,7 @@ else {
   try {
     const stripe = new Stripe(sk);
     await stripe.balance.retrieve(); ok('Stripe API reachable');
+    try { const me = await stripe.accounts.retrieve(); ok('Stripe account for these keys', `${me.id}${me.settings?.dashboard?.display_name ? ' (' + me.settings.dashboard.display_name + ')' : ''}`); } catch (e) { bad('Stripe account id', e.message); }
     try { await stripe.accounts.list({ limit: 1 }); ok('Stripe Connect enabled'); } catch (e) { bad('Stripe Connect enabled', e.message); }
     const wh = await stripe.webhookEndpoints.list({ limit: 20 });
     const mine = wh.data.find((w) => /\/api\/stripe\/webhook$/.test(w.url));
