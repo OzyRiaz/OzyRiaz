@@ -138,7 +138,7 @@ describe('payment is confirmed only by verified webhooks', () => {
 
 describe('Stripe Connect session', () => {
   it('creates a destination charge to the restaurant with BD Feast application fee and idempotency', async () => {
-    process.env.STRIPE_SECRET_KEY = 'sk_test_mock';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
     const create = vi.fn().mockResolvedValue({ id: 'cs_test', url: 'https://checkout.stripe.test/x' });
     __setStripeForTests({ checkout: { sessions: { create } }, coupons: { create: vi.fn().mockResolvedValue({ id: 'co_1' }) } });
     const { order, r } = await placeOrder({ who: 'member', fulfilment: 'delivery', qty: 8 });
@@ -224,7 +224,7 @@ describe('membership (£4.99/month, platform account)', () => {
     expect(mails.filter((k) => k === 'membership_confirmation')).toHaveLength(1);
 
     const update = vi.fn().mockResolvedValue({});
-    process.env.STRIPE_SECRET_KEY = 'sk_test_mock';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
     __setStripeForTests({ subscriptions: { update } });
     await cancelMembership(u.userId);
     expect(update).toHaveBeenCalledWith('sub_1', { cancel_at_period_end: true });

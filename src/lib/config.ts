@@ -2,7 +2,8 @@ export const APP_MODE: 'demo' | 'live' = process.env.APP_MODE === 'live' ? 'live
 export const isDemo = APP_MODE === 'demo';
 export const appUrl = () => process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'http://localhost:3000';
 
-export const stripeConfigured = () => !!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY.startsWith('sk_');
+/** Placeholder values such as "sk_test_..." from .env.example do NOT count as a configured key. */
+export const stripeConfigured = () => /^(sk|rk)_(test|live)_[A-Za-z0-9]{16,}$/.test(process.env.STRIPE_SECRET_KEY ?? '');
 /** Simulated payments are only ever available in demo mode with no Stripe key. */
 export const demoPaymentsEnabled = () => isDemo && !stripeConfigured();
 export const emailConfigured = () => !!process.env.RESEND_API_KEY;
