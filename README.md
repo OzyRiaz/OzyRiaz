@@ -28,6 +28,8 @@ npm test
 Demo mode uses fictional restaurants, an in-memory database (resets on restart) and a **simulated payment page** (the same server function the real webhook calls). Sign in with the one-click demo accounts on `/login`.
 Never use demo mode for real customers.
 
+**Testing on a phone (same Wi-Fi):** `npm run dev` only reliably works from the computer itself. For a phone run `npm run phone` (builds, then serves on your network), and open the `http://<computer-ip>:3000` address on the phone. Windows may ask to allow Node.js through the firewall.
+
 ## Going live (test mode first)
 
 1. **Supabase**: create a project; run `supabase/migrations/0001_schema.sql` then `0002_rls.sql`. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (server only). Create the first admin by registering normally, then in the SQL editor: `update profiles set role='admin' where email='you@example.com';`

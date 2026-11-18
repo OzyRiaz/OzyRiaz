@@ -8,6 +8,8 @@ const securityHeaders = [
 ];
 const nextConfig = {
   poweredByHeader: false,
+  // Lets phones/tablets on the same Wi-Fi load the dev server (npm run dev) via the laptop's network address.
+  allowedDevOrigins: ['192.168.*.*', '10.*.*.*', '172.*.*.*', '*.local'],
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' }],
   },
