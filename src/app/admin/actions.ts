@@ -16,7 +16,7 @@ export async function restaurantStatusAction(fd: FormData) {
   const to = String(fd.get('to'));
   if (!['approved', 'rejected', 'suspended', 'pending'].includes(to)) return;
   const [r] = await db.update<Restaurant>('restaurants', { id: String(fd.get('id')) }, { status: to });
-  if (r && (to === 'approved' || to === 'rejected')) await notify({ kind: 'restaurant_onboarding', to: r.email, subject: to === 'approved' ? 'Welcome to BD Feast — you’re approved' : 'Your BD Feast application', body: to === 'approved' ? `${r.name} is approved. Next: complete Stripe onboarding in your dashboard (Payments) so you can take orders.` : `Unfortunately we can't approve ${r.name} at this time. Contact support if you'd like to discuss this.` });
+  if (r && (to === 'approved' || to === 'rejected')) await notify({ kind: 'restaurant_onboarding', to: r.email, subject: to === 'approved' ? 'Welcome to FeastQuarter — you’re approved' : 'Your FeastQuarter application', body: to === 'approved' ? `${r.name} is approved. Next: complete Stripe onboarding in your dashboard (Payments) so you can take orders.` : `Unfortunately we can't approve ${r.name} at this time. Contact support if you'd like to discuss this.` });
   revalidatePath('/admin/restaurants');
 }
 export async function featureAction(fd: FormData) {

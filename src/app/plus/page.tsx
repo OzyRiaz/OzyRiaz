@@ -11,7 +11,7 @@ import { fmt } from '@/lib/money';
 import { getActiveMembership, getMembership } from '@/lib/services/membership';
 import { getSettings } from '@/lib/services/settings';
 import type { Restaurant } from '@/lib/types';
-export const metadata: Metadata = { title: 'BD Feast Plus' };
+export const metadata: Metadata = { title: 'FeastQuarter Plus' };
 export const dynamic = 'force-dynamic';
 
 export default async function Plus({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
@@ -23,7 +23,7 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
   return (
     <Container className="max-w-4xl py-10">
       <div className="rounded-3xl bg-navy p-8 text-white sm:p-12">
-        <Badge tone="gold"><Crown size={12} />BD Feast Plus</Badge>
+        <Badge tone="gold"><Crown size={12} />FeastQuarter Plus</Badge>
         <h1 className="mt-4 font-display text-4xl font-semibold sm:text-5xl">Member offers from restaurants you&apos;ll actually use.</h1>
         <p className="mt-3 text-4xl font-semibold text-gold">{fmt(settings.membership_price_pence)}<span className="text-lg font-normal text-white/70"> / month</span></p>
         <ul className="mt-5 space-y-2">{settings.membership_benefits.map((b) => <li key={b} className="flex gap-2 text-white/85"><Check className="mt-0.5 shrink-0 text-gold" size={18} />{b}</li>)}</ul>
@@ -38,7 +38,7 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
       </div>
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <Card className="p-6"><h2 className="font-display text-xl font-semibold text-navy">What you get — and don&apos;t</h2>
-          <ul className="mt-3 space-y-2 text-sm text-muted"><li>✓ Percentage discounts at participating restaurants (up to {settings.member_discount_max_percent}% — set by each restaurant, funded by {settings.member_discount_funding === 'restaurant' ? 'the restaurant' : 'BD Feast'}).</li><li>✓ Member-only offers as restaurants add them.</li><li>✗ Not free delivery — delivery charges are set by each restaurant.</li><li>✗ Discounts don&apos;t stack with promo codes; the bigger saving applies.</li></ul></Card>
+          <ul className="mt-3 space-y-2 text-sm text-muted"><li>✓ Percentage discounts at participating restaurants (up to {settings.member_discount_max_percent}% — set by each restaurant, funded by {settings.member_discount_funding === 'restaurant' ? 'the restaurant' : 'FeastQuarter'}).</li><li>✓ Member-only offers as restaurants add them.</li><li>✗ Not free delivery — delivery charges are set by each restaurant.</li><li>✗ Discounts don&apos;t stack with promo codes; the bigger saving applies.</li></ul></Card>
         <Card className="p-6"><h2 className="font-display text-xl font-semibold text-navy">Participating restaurants ({partners.length})</h2>
           <ul className="mt-3 space-y-2 text-sm">{partners.map((r) => <li key={r.id} className="flex justify-between"><Link className="font-medium text-navy hover:underline" href={`/restaurants/${r.slug}`}>{r.name}</Link><span className="text-muted">{Math.min(r.member_offer.percent, settings.member_discount_max_percent)}% off over {fmt(r.member_offer.min_spend_pence)}</span></li>)}</ul></Card>
       </div>
@@ -46,7 +46,7 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
         <Card className="mt-6 p-6"><h2 className="font-display text-xl font-semibold text-navy">Cancel membership</h2><p className="mt-1 text-sm text-muted">You keep your benefits until the end of the billing period and won&apos;t be charged again.</p>
           <ActionForm action={cancelMembershipAction} className="mt-3"><Submit variant="outline" pendingText="Cancelling…">Cancel at end of period</Submit></ActionForm></Card>
       )}
-      <p className="mt-6 text-xs text-muted">Membership is billed monthly by BD Feast through Stripe and renews until cancelled. Terms apply (draft — requires legal review).</p>
+      <p className="mt-6 text-xs text-muted">Membership is billed monthly by FeastQuarter through Stripe and renews until cancelled. Terms apply (draft — requires legal review).</p>
     </Container>
   );
 }

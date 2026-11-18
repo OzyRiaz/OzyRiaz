@@ -25,7 +25,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
         <Card className="mt-5 p-5">
           <Notice tone="gold"><strong>Demo mode quick sign-in.</strong> These fictional accounts only exist in demo mode. Password for typed sign-in: <code>{DEMO_PASSWORD}</code></Notice>
           <div className="mt-3 grid gap-2">
-            {([['Customer', DEMO_ACCOUNTS.customer], ['Member (BD Feast Plus)', DEMO_ACCOUNTS.member], ['Restaurant owner (Karahi Lane)', DEMO_ACCOUNTS.owner], ['Restaurant owner (Smokehouse Grill)', DEMO_ACCOUNTS.owner2], ['Administrator', DEMO_ACCOUNTS.admin]] as const).map(([l, e]) => (
+            {([['Customer', DEMO_ACCOUNTS.customer], ['Member (FeastQuarter Plus)', DEMO_ACCOUNTS.member], ['Restaurant owner (Karahi Lane)', DEMO_ACCOUNTS.owner], ['Restaurant owner (Smokehouse Grill)', DEMO_ACCOUNTS.owner2], ['Administrator', DEMO_ACCOUNTS.admin]] as const).map(([l, e]) => (
               <form key={e} action={demoLoginAction}><input type="hidden" name="email" value={e} /><input type="hidden" name="next" value={next} /><button className="w-full rounded-xl border border-line px-4 py-2.5 text-left text-sm font-semibold text-navy hover:bg-navy-100">{l}<span className="block text-xs font-normal text-muted">{e}</span></button></form>
             ))}
           </div>

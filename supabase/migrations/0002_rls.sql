@@ -41,7 +41,7 @@ create function protect_restaurant_columns() returns trigger language plpgsql as
 begin
   if auth.uid() is not null and not is_admin() and (new.status <> old.status or new.featured <> old.featured or new.stripe_account_id is distinct from old.stripe_account_id
      or new.stripe_charges_enabled <> old.stripe_charges_enabled or new.stripe_payouts_enabled <> old.stripe_payouts_enabled or new.owner_id <> old.owner_id) then
-    raise exception 'protected restaurant columns can only be changed by BD Feast';
+    raise exception 'protected restaurant columns can only be changed by FeastQuarter';
   end if;
   return new;
 end $$;

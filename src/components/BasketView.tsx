@@ -40,7 +40,7 @@ export function Summary({ res, loading }: { res: QuoteResult | null; loading: bo
       {q.discount_pence > 0 && row(q.discount_label ?? 'Discount', `−${fmt(q.discount_pence)}`, 'font-medium text-ok')}
       {q.delivery_fee_pence > 0 && row('Delivery (set by restaurant)', fmt(q.delivery_fee_pence))}
       <div className="flex justify-between border-t border-line pt-3 font-display text-xl font-semibold text-navy"><dt>Total</dt><dd>{fmt(q.total_pence)}</dd></div>
-      {q.memberHint && <p className="rounded-lg bg-gold-100 px-3 py-2 text-xs text-[#5c430a]">{q.memberHint}. <Link href="/plus" className="font-semibold underline">Learn about BD Feast Plus</Link></p>}
+      {q.memberHint && <p className="rounded-lg bg-gold-100 px-3 py-2 text-xs text-[#5c430a]">{q.memberHint}. <Link href="/plus" className="font-semibold underline">Learn about FeastQuarter Plus</Link></p>}
       {q.promoError && <p role="alert" className="text-xs font-medium text-danger">{q.promoError}</p>}
       {!q.open && <p className="text-xs text-danger">This restaurant is currently closed.</p>}
     </dl>

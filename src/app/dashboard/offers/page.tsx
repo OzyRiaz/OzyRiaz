@@ -14,8 +14,8 @@ export default async function Offers() {
   const o = r!.member_offer;
   return (
     <Card className="max-w-2xl p-6">
-      <h2 className="font-display text-2xl font-semibold text-navy">BD Feast Plus member offer</h2>
-      <p className="mt-1 text-sm text-muted">Give BD Feast Plus members a percentage off food. {settings.member_discount_funding === 'restaurant' ? 'The discount is funded by you: it reduces what you receive and the commission base.' : 'The discount is funded by BD Feast from its commission, up to the commission on that order.'}</p>
+      <h2 className="font-display text-2xl font-semibold text-navy">FeastQuarter Plus member offer</h2>
+      <p className="mt-1 text-sm text-muted">Give FeastQuarter Plus members a percentage off food. {settings.member_discount_funding === 'restaurant' ? 'The discount is funded by you: it reduces what you receive and the commission base.' : 'The discount is funded by FeastQuarter from its commission, up to the commission on that order.'}</p>
       <div className="mt-3"><Notice tone="navy">Platform cap: member discounts are limited to <strong>{settings.member_discount_max_percent}%</strong>. Offers are never shown as “was/now” prices.</Notice></div>
       <ActionForm action={saveOfferAction} className="mt-4 space-y-4">
         <label className="flex items-center gap-2 font-semibold text-navy"><input type="checkbox" name="enabled" defaultChecked={o.enabled} className="h-5 w-5 accent-[#132c39]" />Offer a member discount</label>

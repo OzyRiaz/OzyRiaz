@@ -31,7 +31,7 @@ export default async function DashboardOrders({ searchParams }: { searchParams: 
       {sp.error && <Notice tone="red">{sp.error}</Notice>}
       {r.status === 'pending' && <Notice tone="gold"><strong>Your application is being reviewed.</strong> Complete your <Link className="underline" href="/dashboard/menu">menu</Link>, <Link className="underline" href="/dashboard/delivery">delivery areas</Link> and <Link className="underline" href="/dashboard/payments">Stripe payments</Link> while you wait.</Notice>}
       {r.status === 'approved' && !r.stripe_charges_enabled && <Notice tone="red"><strong>You can&apos;t take orders yet.</strong> Finish Stripe onboarding in <Link className="underline" href="/dashboard/payments">Payments</Link>.</Notice>}
-      {r.status === 'suspended' && <Notice tone="red">Your restaurant is suspended. Contact BD Feast support.</Notice>}
+      {r.status === 'suspended' && <Notice tone="red">Your restaurant is suspended. Contact FeastQuarter support.</Notice>}
       <div className="flex items-center justify-between"><h2 className="font-display text-2xl font-semibold text-navy">Live orders {waiting > 0 && <Badge tone="red" className="ml-2 animate-pulse">{waiting} new</Badge>}</h2><span className="text-xs text-muted">Auto-refreshes every 10s</span></div>
       {active.length === 0 ? <EmptyState title="No live orders" body="New paid orders appear here instantly. Keep this page open on your tablet." /> : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

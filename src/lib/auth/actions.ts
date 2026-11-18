@@ -78,7 +78,7 @@ export async function demoLoginAction(fd: FormData) {
   if (!isDemo) redirect('/login');
   const db = await getDb();
   const p = await db.get<Profile>('profiles', { email: String(fd.get('email')) });
-  const isDemoAcct = p && String(p.email).endsWith('@demo.bdfeast.test');
+  const isDemoAcct = p && String(p.email).endsWith('@demo.feastquarter.test');
   if (!p || !isDemoAcct) redirect('/login');
   await setDemoCookie(p.id);
   redirect(safeNext(fd.get('next')) === '/' ? (p.role === 'admin' ? '/admin' : p.role === 'restaurant' ? '/dashboard' : '/') : safeNext(fd.get('next')));

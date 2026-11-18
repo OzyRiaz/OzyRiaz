@@ -6,6 +6,7 @@ import { RestaurantCard } from '@/components/RestaurantCard';
 import { Container, EmptyState, PageTitle } from '@/components/ui';
 import { currentPostcode } from '@/lib/postcode-ctx';
 import { listCuisines, listRestaurants } from '@/lib/services/restaurants';
+import { activeCities, listNames, plannedCities } from '@/lib/cities';
 import { parsePostcode, parseOutwardOnly, postcodeInServedCity } from '@/lib/postcode';
 
 export const metadata: Metadata = { title: 'Restaurants' };
@@ -32,7 +33,7 @@ export default async function Restaurants({ searchParams }: { searchParams: Prom
         {cuisines.map((c) => <Link key={c.name} href={`/restaurants${qs({ postcode: postcode ?? undefined, cuisine: c.name, q: sp.q })}`} aria-current={sp.cuisine === c.name ? 'true' : undefined} className={clsx('shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold', sp.cuisine === c.name ? 'border-navy bg-navy text-white' : 'border-line bg-white text-navy')}>{c.name}</Link>)}
       </nav>
       <div className="mt-6">
-        {unserved ? <EmptyState title="We're not in your area yet" body="BD Feast launches in Bradford first, with Leeds and other UK cities planned. Enter a Bradford (BD) postcode to see restaurants." />
+        {unserved ? <EmptyState title="We're not in your area yet" body={`FeastQuarter is live in ${listNames(activeCities())}${plannedCities().length ? `, with ${listNames(plannedCities())} coming next` : ''}. Enter a postcode in a live city (${activeCities().flatMap((c) => c.areas).join(', ')}) to see restaurants.`} />
           : list.length === 0 ? <EmptyState title="No restaurants found" body={postcode ? `No participating restaurant serves ${postcode} with these filters. Try clearing filters or another postcode.` : 'Try a different search.'} />
           : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">{list.map((r) => <RestaurantCard key={r.id} r={r} postcode={postcode} />)}</div>}
       </div>

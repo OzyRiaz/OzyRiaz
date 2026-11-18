@@ -33,7 +33,7 @@ export function memberDiscount(subtotal: number, offer: MemberOffer, settings: P
   const pct = Math.min(offer.percent, settings.member_discount_max_percent);
   const amountPence = Math.round((subtotal * pct) / 100);
   if (amountPence <= 0) return null;
-  return { label: `BD Feast Plus member offer (${pct}% off)`, amountPence, fundedBy: settings.member_discount_funding };
+  return { label: `FeastQuarter Plus member offer (${pct}% off)`, amountPence, fundedBy: settings.member_discount_funding };
 }
 
 export function promoDiscount(subtotal: number, promo: Promotion, restaurantId: string, now = new Date()): DiscountCandidate | { error: string } {
@@ -72,7 +72,7 @@ export interface Totals {
  * Commission model (documented in README):
  *  - Commission applies to FOOD only (not the delivery fee), at 8% delivery / 5% collection (admin-configurable).
  *  - Restaurant-funded discounts reduce the commission base (restaurant earns, and pays commission on, what it actually charges for food).
- *  - Platform-funded discounts are paid out of BD Feast's commission, so they can never exceed it
+ *  - Platform-funded discounts are paid out of FeastQuarter's commission, so they can never exceed it
  *    (Stripe application fees cannot be negative). Excess is not applied.
  *  - Customer total = subtotal + delivery - discounts. Stripe application_fee = commission - platform-funded discount.
  */

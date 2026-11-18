@@ -8,7 +8,7 @@ export default async function Cuisines() {
   const list = await listCuisines();
   return (
     <Container className="py-8">
-      <PageTitle title="Cuisines" sub="Browse Bradford's food by what you're craving." />
+      <PageTitle title="Cuisines" sub="Browse local food by what you're craving." />
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {list.map((c) => { const a = artFor(c.name); return (
           <li key={c.name}><Link href={`/restaurants?cuisine=${encodeURIComponent(c.name)}`} className="group relative flex h-40 flex-col justify-end overflow-hidden rounded-2xl p-4 text-white shadow-card transition hover:-translate-y-1 hover:shadow-lift" style={{ background: `linear-gradient(135deg, ${a.a}, ${a.b})` }}>

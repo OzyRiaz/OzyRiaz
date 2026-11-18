@@ -130,7 +130,7 @@ export async function addStaffAction(_: FormState, fd: FormData): Promise<FormSt
   const email = String(fd.get('email') ?? '').trim().toLowerCase();
   const role = fd.get('role') === 'manager' ? 'manager' : 'staff';
   const u = await db.get<Profile>('profiles', { email });
-  if (!u) return { error: 'No BD Feast account with that email. Ask them to register first.' };
+  if (!u) return { error: 'No FeastQuarter account with that email. Ask them to register first.' };
   if (u.role === 'admin') return { error: 'That account cannot be added' };
   const existing = await db.select<RestaurantStaff>('restaurant_staff', { user_id: u.id });
   if (existing.length) return { error: existing.some((e) => e.restaurant_id === rid) ? 'Already on your team' : 'That person already works with another restaurant' };

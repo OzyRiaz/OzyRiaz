@@ -11,7 +11,7 @@ import { buildQuote, QuoteError } from './quote';
 import { isOpenNow } from '../hours';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const reference = () => 'BDF-' + Array.from(randomBytes(6), (b) => ALPHABET[b % ALPHABET.length]).join('');
+const reference = () => 'FQ-' + Array.from(randomBytes(6), (b) => ALPHABET[b % ALPHABET.length]).join('');
 
 export class OrderError extends Error {}
 
@@ -91,11 +91,11 @@ export async function createPaymentSession(order: Order, customerEmail: string):
     line_items,
     discounts,
     payment_intent_data: {
-      // Destination charge: money lands with the restaurant's connected account; BD Feast keeps the application fee.
+      // Destination charge: money lands with the restaurant's connected account; FeastQuarter keeps the application fee.
       ...(order.application_fee_pence > 0 ? { application_fee_amount: order.application_fee_pence } : {}),
       transfer_data: { destination: restaurant.stripe_account_id },
       on_behalf_of: restaurant.stripe_account_id,
-      description: `BD Feast order ${order.reference} — ${restaurant.name}`,
+      description: `FeastQuarter order ${order.reference} — ${restaurant.name}`,
       metadata: { order_id: order.id, reference: order.reference },
     },
     metadata: { kind: 'order', order_id: order.id },
@@ -135,7 +135,7 @@ export async function markOrderPaid(orderId: string, p: { paymentIntentId?: stri
   }
   const [customer, restaurant] = await Promise.all([db.get<Profile>('profiles', { id: order.customer_id }), db.get<Restaurant>('restaurants', { id: order.restaurant_id })]);
   await notify({ kind: 'order_confirmation', to: customer?.email, subject: `Order ${order.reference} confirmed`, body: `Thanks ${customer?.full_name ?? ''}! Your order from ${restaurant?.name} (${fmt(order.total_pence)}) has been paid and sent to the restaurant. Track it: ${appUrl()}/orders/${order.id}` });
-  await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New BD Feast order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence)}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
+  await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New FeastQuarter order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence)}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
   return { changed: true, order: claimed[0] };
 }
 

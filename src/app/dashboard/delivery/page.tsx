@@ -16,7 +16,7 @@ export default async function Delivery() {
     <div className="max-w-3xl space-y-5">
       <Card className="p-6">
         <h2 className="font-display text-2xl font-semibold text-navy">Delivery & collection</h2>
-        <p className="mt-1 text-sm text-muted">You deliver with your own drivers and set your own charges. BD Feast doesn&apos;t supply drivers.</p>
+        <p className="mt-1 text-sm text-muted">You deliver with your own drivers and set your own charges. FeastQuarter doesn&apos;t supply drivers.</p>
         <ActionForm action={saveFulfilmentAction} className="mt-4 flex flex-wrap items-center gap-6">
           <label className="flex items-center gap-2 font-semibold text-navy"><input type="checkbox" name="delivery" defaultChecked={r!.delivery_enabled} className="h-5 w-5 accent-[#132c39]" />Offer delivery</label>
           <label className="flex items-center gap-2 font-semibold text-navy"><input type="checkbox" name="collection" defaultChecked={r!.collection_enabled} className="h-5 w-5 accent-[#132c39]" />Offer collection</label>
@@ -31,7 +31,7 @@ export default async function Delivery() {
             <form action={deleteAreaAction}><input type="hidden" name="id" value={a.id} /><button className="text-danger hover:underline" aria-label={`Remove ${a.name}`}>Remove</button></form></li>)}
         </ul>
         <ActionForm action={addAreaAction} className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
-          <Field label="Area name"><Input name="name" placeholder="Central Bradford" required /></Field>
+          <Field label="Area name"><Input name="name" placeholder="Central area" required /></Field>
           <Field label="Postcodes" hint="Outward codes (BD5, BD7) or sectors (BD5 0), separated by commas"><Input name="prefixes" placeholder="BD1, BD3, BD5" required /></Field>
           <Field label="Delivery charge (£)"><Input name="fee" inputMode="decimal" placeholder="2.50" required /></Field>
           <Field label="Minimum order here (£, optional)"><Input name="min" inputMode="decimal" placeholder="15.00" /></Field>

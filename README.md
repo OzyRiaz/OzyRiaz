@@ -1,7 +1,7 @@
-# BD Feast — *Bradford at your table.*
+# FeastQuarter — *Your City. Your Food. Your Way.*
 
-Local food ordering marketplace (Bradford first; Leeds and other cities by config). Restaurants deliver with their own drivers.
-**8%** commission on delivery food orders, **5%** on collection, **no joining or monthly fees**, optional **BD Feast Plus** at **£4.99/month**.
+Local food ordering marketplace. Launching in Bradford; Leeds, Manchester and other UK cities are configuration (`src/lib/cities.ts`), not code. Restaurants deliver with their own drivers.
+**8%** commission on delivery food orders, **5%** on collection, **no joining or monthly fees**, optional **FeastQuarter Plus** at **£4.99/month**.
 
 Next.js 16 (App Router) · TypeScript · Tailwind 4 · Supabase (Postgres/Auth/Storage) · Stripe Connect · Netlify.
 
@@ -44,9 +44,9 @@ Never use demo mode for real customers.
 Connect the GitHub repo; `netlify.toml` is ready (`@netlify/plugin-nextjs`). Set the env vars from `.env.example`, plus `CRON_SECRET` (≥16 chars) so the scheduled function `netlify/functions/daily-summary.mts` (07:00 UTC) can trigger the admin daily summary. Use separate Netlify contexts / Supabase / Stripe projects for demo/staging vs live.
 
 ## How money works
-- **Food orders**: Stripe Checkout *destination charge* — funds go to the restaurant's connected account, BD Feast takes `application_fee_amount`. Delivery fees belong to the restaurant.
+- **Food orders**: Stripe Checkout *destination charge* — funds go to the restaurant's connected account, FeastQuarter takes `application_fee_amount`. Delivery fees belong to the restaurant.
 - **Commission** applies to the **food subtotal only** (after restaurant-funded discounts), rate stored on each order (changing rates affects new orders only).
-- **Discounts**: one per order (the larger of member offer / promo code). Restaurant-funded reduce the restaurant's take. Platform-funded come out of BD Feast's commission and are **capped at it** (Stripe fees can't be negative).
+- **Discounts**: one per order (the larger of member offer / promo code). Restaurant-funded reduce the restaurant's take. Platform-funded come out of FeastQuarter's commission and are **capped at it** (Stripe fees can't be negative).
 - **Membership**: Checkout subscription on the **platform** account. No free-delivery promise.
 - **Paid = webhook only.** The success page never marks anything paid. Events are recorded by id (idempotent); failures roll the record back so Stripe retries. Orders carry a unique idempotency key (no duplicate orders). Amount mismatches are refused.
 - **Admin stats** keep GMV, commission revenue, subscription revenue and platform revenue separate.
@@ -59,3 +59,10 @@ Run live Stripe + Supabase verification · legal review · VAT handling · rate 
 
 ## Layout
 `src/lib` pure domain logic (`pricing.ts`, `postcode.ts`, `order-state.ts`) and `services/` (orders, quote, membership, stripe-webhook, connect, reports, notify) over a tiny `Db` adapter (`db/memory.ts` demo, `db/supabase.ts` live). Add a city in `src/lib/cities.ts`.
+
+## Brand & domain (FeastQuarter)
+
+- Brand constants live in `src/lib/brand.ts` (name, tagline, **FeastQuarter Plus**, colours, domain). Logo mark: `src/components/Logo.tsx`; generated assets in `public/brand/` (favicon, app icons, Open Graph card, 1080px social profile image, email logo, horizontal logos).
+- **Domain `feastquarter.co.uk` is prepared but NOT assumed to be owned or connected.** The site's real URL always comes from `NEXT_PUBLIC_APP_URL`. When the domain is bought: add it in Netlify (Domain management), set DNS as Netlify instructs, set `NEXT_PUBLIC_APP_URL=https://feastquarter.co.uk`, update Supabase Auth → URL Configuration (Site URL + redirect URLs), add the new Stripe webhook endpoint URL (or update the existing one), verify the domain with your email provider and set `EMAIL_FROM` (e.g. `FeastQuarter <orders@feastquarter.co.uk>`).
+- Identifiers deliberately **not** renamed (renaming would lose data or break integrations): browser storage keys `bdfeast.*` and cookies `bdf_pc` / `bdf_demo_session` (internal, invisible; renaming would empty saved baskets/postcodes), all database tables/columns, env var names, Stripe IDs (`STRIPE_MEMBERSHIP_PRICE_ID`, accounts, customers, subscriptions) and the Supabase project. Existing orders keep their `BDF-` references; new orders use `FQ-`.
+- Existing live databases: run `supabase/migrations/0003_rebrand.sql` (data-only, idempotent) to update stored membership benefit text. If a Stripe Product for the membership already exists, rename its display name to "FeastQuarter Plus" in the Stripe dashboard — the Price/Product IDs stay the same, so existing subscriptions are untouched.

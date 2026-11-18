@@ -50,7 +50,7 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
     if (!restaurant.delivery_enabled) throw new QuoteError('This restaurant does not offer delivery');
     const pc = parsePostcode(input.postcode ?? '');
     if (!pc) throw new QuoteError('Enter a valid UK postcode for delivery');
-    if (!postcodeInServedCity(pc)) throw new QuoteError('BD Feast is not available in your area yet');
+    if (!postcodeInServedCity(pc)) throw new QuoteError('FeastQuarter is not available in your area yet');
     const areas = await db.select<DeliveryArea>('delivery_areas', { restaurant_id: restaurant.id });
     const { area } = availabilityFor(restaurant, areas, pc.normalised);
     if (!area) throw new QuoteError('This restaurant does not deliver to your postcode. Try collection instead.');
@@ -66,7 +66,7 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
   const md = memberDiscount(subtotal, restaurant.member_offer, settings);
   if (md) {
     if (membership) cands.push(md);
-    else memberHint = `BD Feast Plus members save ${fmtPct(restaurant.member_offer.percent, settings.member_discount_max_percent)} at this restaurant`;
+    else memberHint = `FeastQuarter Plus members save ${fmtPct(restaurant.member_offer.percent, settings.member_discount_max_percent)} at this restaurant`;
   }
   let promoError: string | undefined;
   if (input.promoCode?.trim()) {

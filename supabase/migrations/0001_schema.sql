@@ -1,4 +1,4 @@
--- BD Feast schema. All money is integer pence (GBP). Run via `supabase db push` or the SQL editor.
+-- FeastQuarter schema. All money is integer pence (GBP). Run via `supabase db push` or the SQL editor.
 create extension if not exists pgcrypto;
 
 create table profiles (
@@ -159,7 +159,7 @@ create table platform_settings (
 );
 insert into platform_settings (membership_benefits) values (array[
   'Access to member-only discounts at participating restaurants',
-  'Exclusive offers set by restaurants and BD Feast',
+  'Exclusive offers set by restaurants and FeastQuarter',
   'Cancel any time — no minimum term']);
 
 create table stripe_events (id text primary key, type text not null, received_at timestamptz not null default now()); -- webhook idempotency

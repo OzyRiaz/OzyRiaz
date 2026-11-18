@@ -6,12 +6,12 @@ import { getSession } from '@/lib/auth/session';
 export const metadata: Metadata = { title: 'Help & support' };
 
 const FAQ: [string, string][] = [
-  ['Who delivers my food?', 'The restaurant. BD Feast does not employ drivers — each restaurant delivers with its own drivers, sets its own delivery area and delivery charge.'],
-  ['Why can’t I see a restaurant near me?', 'Restaurants only appear if they deliver to your postcode or offer collection. We launch in Bradford first and add new areas over time.'],
+  ['Who delivers my food?', 'The restaurant. FeastQuarter does not employ drivers — each restaurant delivers with its own drivers, sets its own delivery area and delivery charge.'],
+  ['Why can’t I see a restaurant near me?', 'Restaurants only appear if they deliver to your postcode or offer collection. We launch city by city, starting with Bradford, and add new areas over time.'],
   ['Can I order from two restaurants at once?', 'No — each order is from one restaurant. Place separate orders if you want food from two places.'],
   ['My order was rejected. Do I get my money back?', 'Yes, in full, automatically. Refunds can take 5–10 working days to appear on your statement.'],
-  ['I have a food allergy.', 'Tell the restaurant before ordering and check with them directly. Allergen details on menus are provided by restaurants and can’t be guaranteed by BD Feast.'],
-  ['How do I cancel BD Feast Plus?', 'Go to BD Feast Plus and choose “Cancel at end of period”. You keep benefits until the period ends and won’t be charged again.'],
+  ['I have a food allergy.', 'Tell the restaurant before ordering and check with them directly. Allergen details on menus are provided by restaurants and can’t be guaranteed by FeastQuarter.'],
+  ['How do I cancel FeastQuarter Plus?', 'Go to FeastQuarter Plus and choose “Cancel at end of period”. You keep benefits until the period ends and won’t be charged again.'],
   ['How do I delete my account or download my data?', 'Open Account → “Your data & privacy”.'],
 ];
 export default async function Help() {

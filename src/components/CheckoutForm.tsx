@@ -8,7 +8,7 @@ import { orderKey, useBasket } from './BasketProvider';
 import { Summary, useQuote } from './BasketView';
 import { btn, Card, EmptyState, Field, Input, Notice, Textarea } from './ui';
 
-export function CheckoutForm({ addresses, phone, email, isDemo }: { addresses: Address[]; phone: string; email: string; isDemo: boolean }) {
+export function CheckoutForm({ addresses, phone, email, isDemo, defaultCity }: { addresses: Address[]; phone: string; email: string; isDemo: boolean; defaultCity: string }) {
   const { basket, prefs, setPrefs, hydrated } = useBasket();
   const { res, loading } = useQuote();
   const [pending, start] = useTransition();
@@ -16,7 +16,7 @@ export function CheckoutForm({ addresses, phone, email, isDemo }: { addresses: A
   const [sel, setSel] = useState<string>(addresses[0]?.id ?? 'new');
   const [ack, setAck] = useState(false);
   const [terms, setTerms] = useState(false);
-  const [f, setF] = useState({ line1: '', line2: '', city: 'Bradford', phone, note: '' });
+  const [f, setF] = useState({ line1: '', line2: '', city: defaultCity, phone, note: '' });
 
   if (!hydrated) return <div className="skeleton h-64" aria-busy="true" />;
   if (!basket) return <EmptyState title="Nothing to check out" action={<Link href="/restaurants" className={btn('primary')}>Browse restaurants</Link>} />;
@@ -94,7 +94,7 @@ export function CheckoutForm({ addresses, phone, email, isDemo }: { addresses: A
           <button onClick={pay} disabled={pending || !res?.ok || !ack} aria-busy={pending} className={btn('gold', 'lg', 'mt-4 w-full')}>
             {pending ? 'Redirecting to payment…' : res?.ok ? `Pay ${(res.quote.total_pence / 100).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })} securely` : 'Pay securely'}
           </button>
-          <p className="mt-3 text-center text-xs text-muted">{isDemo ? 'Demo mode: you will be taken to a simulated payment page. No card is charged.' : 'Card payment is handled by Stripe. BD Feast never sees or stores your card details.'}</p>
+          <p className="mt-3 text-center text-xs text-muted">{isDemo ? 'Demo mode: you will be taken to a simulated payment page. No card is charged.' : 'Card payment is handled by Stripe. FeastQuarter never sees or stores your card details.'}</p>
           <p className="mt-1 text-center text-xs text-muted">Signed in as {email}</p>
         </Card>
       </aside>

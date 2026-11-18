@@ -13,14 +13,14 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 md:grid-cols-4">
         <div>
           <Logo light />
-          <p className="mt-3 font-display text-lg text-gold">Bradford at your table.</p>
+          <p className="mt-3 font-display text-lg text-gold">Your City. Your Food. Your Way.</p>
           <p className="mt-2 text-sm text-white/60">Local restaurants, delivered by the people who cook your food.</p>
         </div>
-        {col('Customers', [['/restaurants', 'Find food'], ['/plus', 'BD Feast Plus'], ['/offers', 'Offers'], ['/help', 'Help & support']])}
+        {col('Customers', [['/restaurants', 'Find food'], ['/plus', 'FeastQuarter Plus'], ['/offers', 'Offers'], ['/help', 'Help & support']])}
         {col('Restaurants', [['/partner', 'Partner with us'], ['/login?next=/dashboard', 'Restaurant sign in']])}
         {col('Legal', [['/legal/terms', 'Terms'], ['/legal/privacy', 'Privacy'], ['/legal/allergens', 'Allergen information']])}
       </div>
-      <p className="mx-auto mt-10 max-w-6xl px-4 text-xs text-white/50 sm:px-6">© BD Feast. Restaurants make and deliver their own orders. Allergies: always tell the restaurant before ordering.</p>
+      <p className="mx-auto mt-10 max-w-6xl px-4 text-xs text-white/50 sm:px-6">© FeastQuarter. Restaurants make and deliver their own orders. Allergies: always tell the restaurant before ordering.</p>
     </footer>
   );
 }

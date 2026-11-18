@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FeastQuarter">
+  <rect width="512" height="512" rx="112" fill="#132C39"/>
+  <g transform="translate(256 256)">
+    <circle r="168" fill="none" stroke="#FAF8F4" stroke-width="12" opacity=".9"/>
+    <path d="M9 -9 L9 -140 A140 140 0 0 1 140 -9 Z" fill="#F4C870"/>
+    <path d="M9 9 L140 9 A140 140 0 0 1 9 140 Z" fill="#FAF8F4"/>
+    <path d="M-9 9 L-9 140 A140 140 0 0 1 -140 9 Z" fill="#FAF8F4"/>
+    <path d="M-140 -9 A140 140 0 0 1 -9 -140 L-9 -9 Z" fill="#FAF8F4"/>
+  </g>
+</svg>

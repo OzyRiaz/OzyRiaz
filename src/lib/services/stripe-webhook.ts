@@ -69,7 +69,7 @@ async function handle(event: Stripe.Event) {
       if (!m) return;
       const end = (inv.lines?.data ?? []).map((l) => l.period?.end).filter(Boolean).sort().pop();
       await activateMembership(m.user_id, { customerId: idOf(inv.customer), periodEnd: end ? new Date(end * 1000) : null });
-      await db.insert('transactions', { kind: 'membership_payment', order_id: null, user_id: m.user_id, restaurant_id: null, amount_pence: inv.amount_paid, status: 'succeeded', stripe_ref: inv.id ?? null, note: 'BD Feast Plus' });
+      await db.insert('transactions', { kind: 'membership_payment', order_id: null, user_id: m.user_id, restaurant_id: null, amount_pence: inv.amount_paid, status: 'succeeded', stripe_ref: inv.id ?? null, note: 'FeastQuarter Plus' });
       return;
     }
     case 'invoice.payment_failed': {
@@ -79,7 +79,7 @@ async function handle(event: Stripe.Event) {
       await db.update('memberships', { user_id: m.user_id }, { status: 'past_due' });
       await db.insert('transactions', { kind: 'payment_failed', order_id: null, user_id: m.user_id, restaurant_id: null, amount_pence: inv.amount_due, status: 'failed', stripe_ref: inv.id ?? null, note: 'Membership renewal failed' });
       const u = await db.get<Profile>('profiles', { id: m.user_id });
-      await notify({ kind: 'membership_payment_failed', to: u?.email, subject: 'BD Feast Plus payment failed', body: `We couldn't take your BD Feast Plus payment of ${fmt(inv.amount_due)}. Please update your payment method to keep your benefits.` });
+      await notify({ kind: 'membership_payment_failed', to: u?.email, subject: 'FeastQuarter Plus payment failed', body: `We couldn't take your FeastQuarter Plus payment of ${fmt(inv.amount_due)}. Please update your payment method to keep your benefits.` });
       return;
     }
     case 'customer.subscription.created':
@@ -99,7 +99,7 @@ async function handle(event: Stripe.Event) {
       if (!uid) return;
       await endMembership(uid);
       const u = await db.get<Profile>('profiles', { id: uid });
-      await notify({ kind: 'membership_cancellation', to: u?.email, subject: 'Your BD Feast Plus membership has ended', body: 'Your BD Feast Plus membership has ended. You can rejoin any time from your account.' });
+      await notify({ kind: 'membership_cancellation', to: u?.email, subject: 'Your FeastQuarter Plus membership has ended', body: 'Your FeastQuarter Plus membership has ended. You can rejoin any time from your account.' });
       return;
     }
     case 'account.updated': {
@@ -108,7 +108,7 @@ async function handle(event: Stripe.Event) {
       if (!r) return;
       await db.update('restaurants', { id: r.id }, { stripe_details_submitted: a.details_submitted, stripe_charges_enabled: a.charges_enabled, stripe_payouts_enabled: a.payouts_enabled });
       if (a.charges_enabled && !r.stripe_charges_enabled) {
-        await notify({ kind: 'restaurant_onboarding', to: r.email, subject: 'Your BD Feast payments are enabled', body: `${r.name} can now take paid orders on BD Feast. Payouts: ${a.payouts_enabled ? 'enabled' : 'pending Stripe verification'}.` });
+        await notify({ kind: 'restaurant_onboarding', to: r.email, subject: 'Your FeastQuarter payments are enabled', body: `${r.name} can now take paid orders on FeastQuarter. Payouts: ${a.payouts_enabled ? 'enabled' : 'pending Stripe verification'}.` });
       }
       return;
     }

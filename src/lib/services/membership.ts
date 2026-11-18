@@ -16,10 +16,10 @@ export async function getActiveMembership(userId: string) {
   return m;
 }
 
-/** Membership money goes to the BD Feast PLATFORM Stripe account (no transfer_data, no Connect). */
+/** Membership money goes to the FeastQuarter PLATFORM Stripe account (no transfer_data, no Connect). */
 export async function startMembershipCheckout(user: Profile): Promise<{ url: string }> {
   const db = await getDb();
-  if (await getActiveMembership(user.id)) throw new Error('You already have an active BD Feast Plus membership');
+  if (await getActiveMembership(user.id)) throw new Error('You already have an active FeastQuarter Plus membership');
   if (demoPaymentsEnabled()) {
     return { url: '/plus/demo' };
   }
@@ -40,7 +40,7 @@ export async function startMembershipCheckout(user: Profile): Promise<{ url: str
     client_reference_id: user.id,
     line_items: [priceId ? { price: priceId, quantity: 1 } : {
       quantity: 1,
-      price_data: { currency: 'gbp', unit_amount: settings.membership_price_pence, recurring: { interval: 'month' }, product_data: { name: 'BD Feast Plus' } },
+      price_data: { currency: 'gbp', unit_amount: settings.membership_price_pence, recurring: { interval: 'month' }, product_data: { name: 'FeastQuarter Plus' } },
     }],
     subscription_data: { metadata: { user_id: user.id } },
     metadata: { kind: 'membership', user_id: user.id },
@@ -65,7 +65,7 @@ export async function activateMembership(userId: string, p: { customerId?: strin
   const user = await db.get<Profile>('profiles', { id: userId });
   if (user && !wasActive && p.notifyUser !== false) {
     const s = await getSettings();
-    await notify({ kind: 'membership_confirmation', to: user.email, subject: 'Welcome to BD Feast Plus', body: `Hi ${user.full_name},\n\nYour BD Feast Plus membership (${fmt(s.membership_price_pence)}/month) is active. You can cancel any time from your account.\n\nBD Feast — Bradford at your table.` });
+    await notify({ kind: 'membership_confirmation', to: user.email, subject: 'Welcome to FeastQuarter Plus', body: `Hi ${user.full_name},\n\nYour FeastQuarter Plus membership (${fmt(s.membership_price_pence)}/month) is active. You can cancel any time from your account.\n\nFeastQuarter — Your City. Your Food. Your Way.` });
   }
 }
 
@@ -78,7 +78,7 @@ export async function cancelMembership(userId: string) {
   }
   await db.update('memberships', { user_id: userId }, { cancel_at_period_end: true });
   const user = await db.get<Profile>('profiles', { id: userId });
-  if (user) await notify({ kind: 'membership_cancellation', to: user.email, subject: 'Your BD Feast Plus cancellation', body: `Hi ${user.full_name},\n\nYour membership will end on ${m.current_period_end ? new Date(m.current_period_end).toLocaleDateString('en-GB') : 'the end of the current billing period'}. You keep your benefits until then and won't be charged again.\n\nBD Feast` });
+  if (user) await notify({ kind: 'membership_cancellation', to: user.email, subject: 'Your FeastQuarter Plus cancellation', body: `Hi ${user.full_name},\n\nYour membership will end on ${m.current_period_end ? new Date(m.current_period_end).toLocaleDateString('en-GB') : 'the end of the current billing period'}. You keep your benefits until then and won't be charged again.\n\nFeastQuarter` });
 }
 
 export async function endMembership(userId: string) {

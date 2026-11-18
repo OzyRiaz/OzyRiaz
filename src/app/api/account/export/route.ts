@@ -12,6 +12,6 @@ export async function GET() {
     db.get('profiles', { id: s.userId }), db.select('addresses', { user_id: s.userId }), db.select('orders', { customer_id: s.userId }), db.get('memberships', { user_id: s.userId }),
   ]);
   return new NextResponse(JSON.stringify({ exported_at: new Date().toISOString(), profile, addresses, orders, membership }, null, 2), {
-    headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="bd-feast-my-data.json"', 'Cache-Control': 'no-store' },
+    headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="feastquarter-my-data.json"', 'Cache-Control': 'no-store' },
   });
 }

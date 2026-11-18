@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { BRAND } from '@/lib/brand';
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'BD Feast', short_name: 'BD Feast', description: 'Bradford at your table. Order from local restaurants.',
+    name: BRAND.name, short_name: BRAND.name, description: `${BRAND.tagline} Order from local restaurants.`,
     start_url: '/', scope: '/', display: 'standalone', orientation: 'portrait', background_color: '#FAF8F4', theme_color: '#132C39', categories: ['food', 'shopping'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

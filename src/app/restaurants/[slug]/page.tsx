@@ -36,7 +36,7 @@ export default async function RestaurantPage({ params, searchParams }: { params:
       <div className="bg-navy">
         <Container className="grid gap-5 py-6 md:grid-cols-[1fr_auto] md:items-end md:py-10">
           <div>
-            <div className="flex flex-wrap gap-2">{r.is_demo && <Badge tone="demo">Demonstration restaurant</Badge>}{r.status !== 'approved' && <Badge tone="red">Not live — {r.status}</Badge>}{!open && <Badge tone="grey">Closed now</Badge>}{r.member_offer.enabled && <Badge tone="gold"><Crown size={12} />{r.member_offer.percent}% off for BD Feast Plus</Badge>}</div>
+            <div className="flex flex-wrap gap-2">{r.is_demo && <Badge tone="demo">Demonstration restaurant</Badge>}{r.status !== 'approved' && <Badge tone="red">Not live — {r.status}</Badge>}{!open && <Badge tone="grey">Closed now</Badge>}{r.member_offer.enabled && <Badge tone="gold"><Crown size={12} />{r.member_offer.percent}% off for FeastQuarter Plus</Badge>}</div>
             <h1 className="mt-3 font-display text-4xl font-semibold text-white sm:text-5xl">{r.name}</h1>
             <p className="mt-2 max-w-2xl text-white/75">{r.description}</p>
             <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><Clock size={15} className="text-gold" />Ready in ~{r.prep_minutes}–{r.prep_minutes + 15} min</span><span className="inline-flex items-center gap-1.5"><MapPin size={15} className="text-gold" />{r.address_line1}, {r.postcode}</span>{r.phone && <span className="inline-flex items-center gap-1.5"><Phone size={15} className="text-gold" />{r.phone}</span>}</p>

@@ -36,7 +36,7 @@ describe('commission', () => {
     expect(t.application_fee_pence).toBe(80);
     expect(t.restaurant_net_pence).toBe(1520);
   });
-  it('platform-funded discount is paid from BD Feast commission and is capped by it', () => {
+  it('platform-funded discount is paid from FeastQuarter commission and is capped by it', () => {
     const t = computeTotals({ subtotal: 2000, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: { label: 'x', amountPence: 1000, fundedBy: 'platform', promoCode: 'X' } });
     expect(t.commission_pence).toBe(160);
     expect(t.discount_pence).toBe(160); // capped

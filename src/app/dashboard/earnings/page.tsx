@@ -15,7 +15,7 @@ export default async function Earnings() {
       <h2 className="font-display text-2xl font-semibold text-navy">Earnings & commission</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Paid orders" value={String(summary.orders)} /><Stat label="Gross sales" value={fmt(summary.gross_pence)} sub="What customers paid" />
-        <Stat label="BD Feast commission" value={fmt(summary.commission_pence)} sub="8% delivery · 5% collection (food only)" /><Stat tone="gold" label="Your net earnings" value={fmt(summary.net_pence)} sub="Paid to your Stripe account" />
+        <Stat label="FeastQuarter commission" value={fmt(summary.commission_pence)} sub="8% delivery · 5% collection (food only)" /><Stat tone="gold" label="Your net earnings" value={fmt(summary.net_pence)} sub="Paid to your Stripe account" />
       </div>
       {summary.refunded_pence > 0 && <p className="text-sm text-muted">Includes {fmt(summary.refunded_pence)} refunded to customers.</p>}
       <Card className="overflow-x-auto">

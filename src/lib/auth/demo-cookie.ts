@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+// Internal cookie name kept as-is (demo mode only); not user-visible.
 export const DEMO_COOKIE = 'bdf_demo_session';
 const secret = () => process.env.DEMO_SESSION_SECRET || 'dev-only-demo-secret';
 

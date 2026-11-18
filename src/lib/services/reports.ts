@@ -7,7 +7,7 @@ const net = (o: Order) => Math.round((o.application_fee_pence * (o.total_pence -
 export interface PlatformStats {
   gmv_pence: number;                // gross value of all paid orders (what customers paid, before refunds)
   refunded_pence: number;
-  commission_revenue_pence: number; // BD Feast application fees, net of refunds
+  commission_revenue_pence: number; // FeastQuarter application fees, net of refunds
   subscription_revenue_pence: number;
   platform_revenue_pence: number;   // commission + subscriptions  (NOT GMV)
   active_members: number;

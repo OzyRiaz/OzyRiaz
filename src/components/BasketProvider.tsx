@@ -17,6 +17,7 @@ interface Ctx {
   hydrated: boolean;
 }
 const C = createContext<Ctx | null>(null);
+// Storage keys keep their original (pre-rebrand) names on purpose: renaming would silently empty customers' saved baskets.
 const KEY = 'bdfeast.basket.v1';
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Math.random()).slice(2));
 

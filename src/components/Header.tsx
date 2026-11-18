@@ -7,13 +7,13 @@ import { BasketButton } from './Chrome';
 
 export async function Header() {
   const s = await getSession();
-  const nav = [{ href: '/restaurants', label: 'Restaurants' }, { href: '/cuisines', label: 'Cuisines' }, { href: '/offers', label: 'Offers' }, { href: '/plus', label: 'BD Feast Plus' }, { href: '/help', label: 'Help' }];
+  const nav = [{ href: '/restaurants', label: 'Restaurants' }, { href: '/cuisines', label: 'Cuisines' }, { href: '/offers', label: 'Offers' }, { href: '/plus', label: 'FeastQuarter Plus' }, { href: '/help', label: 'Help' }];
   return (
     <>
       {isDemo && <div className="bg-violet-700 px-4 py-1.5 text-center text-xs font-medium text-white">Demonstration mode — fictional restaurants, simulated payments. No real orders or charges.</div>}
       <header className="no-print sticky top-0 z-50 bg-navy text-white shadow-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
-          <Link href="/" aria-label="BD Feast home"><Logo light /></Link>
+          <Link href="/" aria-label="FeastQuarter home"><Logo light /></Link>
           <nav aria-label="Main" className="ml-6 hidden items-center gap-1 md:flex">
             {nav.map((n) => <Link key={n.href} href={n.href} className="rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">{n.label}</Link>)}
           </nav>

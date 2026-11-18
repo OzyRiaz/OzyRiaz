@@ -10,15 +10,15 @@ import { computeTotals, priceLine } from './pricing';
 import type { MenuItem, OptionGroup, Restaurant } from './types';
 
 /** Stable ids so demo sign-in cookies survive a dev-server restart. */
-const stableId = (email: string) => { const h = createHash('sha1').update('bdfeast-demo:' + email).digest('hex'); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`; };
+const stableId = (email: string) => { const h = createHash('sha1').update('feastquarter-demo:' + email).digest('hex'); return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`; };
 
 export const DEMO_PASSWORD = 'DemoPass123!';
 export const DEMO_ACCOUNTS = {
-  admin: 'admin@demo.bdfeast.test',
-  customer: 'customer@demo.bdfeast.test',
-  member: 'member@demo.bdfeast.test',
-  owner: 'owner.karahi@demo.bdfeast.test',
-  owner2: 'owner.smokehouse@demo.bdfeast.test',
+  admin: 'admin@demo.feastquarter.test',
+  customer: 'customer@demo.feastquarter.test',
+  member: 'member@demo.feastquarter.test',
+  owner: 'owner.karahi@demo.feastquarter.test',
+  owner2: 'owner.smokehouse@demo.feastquarter.test',
 };
 
 export const DEFAULT_SETTINGS = {
@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS = {
   membership_price_pence: 499,
   membership_benefits: [
     'Access to member-only discounts at participating restaurants',
-    'Exclusive offers set by restaurants and BD Feast',
+    'Exclusive offers set by restaurants and FeastQuarter',
     'Cancel any time — no minimum term',
   ],
   member_discount_funding: 'restaurant',
@@ -191,7 +191,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
 
   const settings = DEFAULT_SETTINGS as never;
   for (const r of RESTAURANTS) {
-    const email = r.owner ?? `owner.${r.slug}@demo.bdfeast.test`;
+    const email = r.owner ?? `owner.${r.slug}@demo.feastquarter.test`;
     const owner = await db.get<{ id: string }>('profiles', { email }) ?? await user(email, `${r.name} Owner`, 'restaurant');
     const approved = (r.status ?? 'approved') === 'approved';
     const rest = await db.insert<Restaurant>('restaurants', mk({
@@ -231,7 +231,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
       const t = computeTotals({ subtotal: sub, deliveryFee: 250, fulfilment, settings, discount: null });
       const when = new Date(Date.now() - (n * 7 + 2) * 36e5).toISOString();
       await db.insert('orders', {
-        reference: `BDF-DEMO${String(n).padStart(3, '0')}`, customer_id: customer.id, restaurant_id: r.id, idempotency_key: `seed-${n}`, fulfilment,
+        reference: `FQ-DEMO${String(n).padStart(3, '0')}`, customer_id: customer.id, restaurant_id: r.id, idempotency_key: `seed-${n}`, fulfilment,
         status: 'completed', payment_status: 'paid', lines: [line], ...t, delivery_address: fulfilment === 'delivery' ? { line1: '10 Example Terrace', city: 'Bradford', postcode: 'BD5 0BB' } : null,
         customer_note: null, contact_phone: null, stripe_session_id: null, stripe_payment_intent_id: `pi_demo_${n}`, rejection_reason: null, refunded_pence: 0,
         history: [{ status: 'completed', at: when }], created_at: when, paid_at: when,

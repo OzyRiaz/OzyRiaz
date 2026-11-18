@@ -19,14 +19,14 @@ export default async function Payments({ searchParams }: { searchParams: Promise
   return (
     <Card className="max-w-2xl p-6">
       <h2 className="font-display text-2xl font-semibold text-navy">Stripe payments & payouts</h2>
-      <p className="mt-1 text-sm text-muted">Customer payments go straight to your own Stripe account. BD Feast&apos;s commission is deducted automatically at payment time.</p>
+      <p className="mt-1 text-sm text-muted">Customer payments go straight to your own Stripe account. FeastQuarter&apos;s commission is deducted automatically at payment time.</p>
       {sp.error && <div className="mt-3"><Notice tone="red">{sp.error}</Notice></div>}
       {demoPaymentsEnabled() && <div className="mt-3"><Notice tone="gold">Demo mode: Stripe isn&apos;t connected. Onboarding is simulated.</Notice></div>}
       <ul className="mt-3 divide-y divide-line">
         {row('Stripe account created', !!r.stripe_account_id)}{row('Business details submitted', r.stripe_details_submitted)}{row('Can accept card payments', r.stripe_charges_enabled)}{row('Payouts to your bank enabled', r.stripe_payouts_enabled)}
       </ul>
       <form action={connectOnboardAction} className="mt-5"><Submit variant="gold">{r.stripe_details_submitted ? 'Update Stripe details' : r.stripe_account_id ? 'Continue Stripe onboarding' : 'Start Stripe onboarding'}</Submit></form>
-      {r.status !== 'approved' && <p className="mt-3 text-sm text-muted">Onboarding unlocks once BD Feast approves your application.</p>}
+      {r.status !== 'approved' && <p className="mt-3 text-sm text-muted">Onboarding unlocks once FeastQuarter approves your application.</p>}
     </Card>
   );
 }

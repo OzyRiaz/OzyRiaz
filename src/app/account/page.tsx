@@ -5,6 +5,7 @@ import { Badge, Card, Container, Field, Input, PageTitle } from '@/components/ui
 import { requireSession } from '@/lib/auth/session';
 import { addAddressAction, deleteAccountAction, deleteAddressAction, updateProfileAction } from '@/app/actions/customer';
 import { getDb } from '@/lib/db';
+import { launchCity } from '@/lib/cities';
 import { getActiveMembership } from '@/lib/services/membership';
 import type { Address, Profile } from '@/lib/types';
 export const metadata: Metadata = { title: 'Account' };
@@ -18,7 +19,7 @@ export default async function Account() {
       <PageTitle title="Your account" sub={s.email} />
       <div className="space-y-5">
         <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
-          <div><h2 className="font-display text-xl font-semibold text-navy">BD Feast Plus</h2><p className="text-sm text-muted">{m ? `Active${m.cancel_at_period_end ? ' — ends ' + new Date(m.current_period_end!).toLocaleDateString('en-GB') : m.current_period_end ? ' — renews ' + new Date(m.current_period_end).toLocaleDateString('en-GB') : ''}` : 'Not a member'}</p></div>
+          <div><h2 className="font-display text-xl font-semibold text-navy">FeastQuarter Plus</h2><p className="text-sm text-muted">{m ? `Active${m.cancel_at_period_end ? ' — ends ' + new Date(m.current_period_end!).toLocaleDateString('en-GB') : m.current_period_end ? ' — renews ' + new Date(m.current_period_end).toLocaleDateString('en-GB') : ''}` : 'Not a member'}</p></div>
           <div className="flex items-center gap-2">{m && <Badge tone="gold">Member</Badge>}<Link href="/plus" className="text-sm font-semibold text-navy underline">Manage</Link></div>
         </Card>
         <Card className="p-5">
@@ -41,7 +42,7 @@ export default async function Account() {
             <Field label="Postcode"><Input name="postcode" placeholder="BD5 0AA" autoComplete="postal-code" required /></Field>
             <div className="sm:col-span-2"><Field label="Address line 1"><Input name="line1" autoComplete="address-line1" required /></Field></div>
             <Field label="Address line 2"><Input name="line2" /></Field>
-            <Field label="Town / city"><Input name="city" defaultValue="Bradford" required /></Field>
+            <Field label="Town / city"><Input name="city" defaultValue={launchCity().name} required /></Field>
             <div className="sm:col-span-2"><Submit variant="outline">Add address</Submit></div>
           </ActionForm>
         </Card>

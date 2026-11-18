@@ -1,8 +1,8 @@
 {
-  "name": "bd-feast",
+  "name": "feastquarter",
   "version": "0.1.0",
   "private": true,
-  "description": "BD Feast — Bradford at your table. Local food ordering marketplace.",
+  "description": "FeastQuarter — Your City. Your Food. Your Way. Local food ordering marketplace.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

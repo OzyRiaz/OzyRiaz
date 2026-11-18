@@ -138,7 +138,7 @@ export async function supportAction(_: FormState, fd: FormData): Promise<FormSta
 export async function deleteAccountAction(_: FormState, fd: FormData): Promise<FormState> {
   const s = await requireSession('/account');
   if (String(fd.get('confirm')).trim().toUpperCase() !== 'DELETE') return { error: 'Type DELETE to confirm' };
-  if (s.role !== 'customer') return { error: 'Restaurant and admin accounts must be closed by BD Feast support so payouts and records are handled correctly.' };
+  if (s.role !== 'customer') return { error: 'Restaurant and admin accounts must be closed by FeastQuarter support so payouts and records are handled correctly.' };
   const db = await getDb();
   const active = (await db.select<{ status: string; payment_status: string }>('orders', { customer_id: s.userId })).some((o) => o.payment_status === 'paid' && ['awaiting_restaurant', 'accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status));
   if (active) return { error: 'You have an order in progress. Please wait until it is complete.' };

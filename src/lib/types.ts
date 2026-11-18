@@ -139,7 +139,7 @@ export interface Order {
   total_pence: number;
   commission_bps: number;
   commission_pence: number; // gross commission before platform-funded discount
-  application_fee_pence: number; // what BD Feast actually collects via Stripe
+  application_fee_pence: number; // what FeastQuarter actually collects via Stripe
   restaurant_net_pence: number;
   delivery_address: { line1: string; line2?: string | null; city: string; postcode: string } | null;
   customer_note: string | null;

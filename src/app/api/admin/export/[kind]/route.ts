@@ -24,5 +24,5 @@ export async function GET(_: Request, { params }: { params: Promise<{ kind: stri
   } else if (kind === 'customers') {
     rows = (await db.select<Profile>('profiles', { role: 'customer' })).map((u) => ({ name: u.full_name, email: u.email, suspended: u.suspended, created: u.created_at }));
   } else return NextResponse.json({ error: 'Unknown export' }, { status: 404 });
-  return new NextResponse(csv(rows) || 'no data', { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="bdfeast-${kind}-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'no-store' } });
+  return new NextResponse(csv(rows) || 'no data', { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="feastquarter-${kind}-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'no-store' } });
 }

@@ -137,7 +137,7 @@ describe('payment is confirmed only by verified webhooks', () => {
 });
 
 describe('Stripe Connect session', () => {
-  it('creates a destination charge to the restaurant with BD Feast application fee and idempotency', async () => {
+  it('creates a destination charge to the restaurant with FeastQuarter application fee and idempotency', async () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
     const create = vi.fn().mockResolvedValue({ id: 'cs_test', url: 'https://checkout.stripe.test/x' });
     __setStripeForTests({ checkout: { sessions: { create } }, coupons: { create: vi.fn().mockResolvedValue({ id: 'co_1' }) } });
@@ -296,7 +296,7 @@ describe('suspended accounts', () => {
     const u = await customer();
     await (await getDb()).update('profiles', { id: u.userId }, { suspended: true });
     await expect(placeOrder()).rejects.toThrow(/cannot place orders/);
-    expect(await sessionFor('customer@demo.bdfeast.test')).toBeTruthy();
+    expect(await sessionFor('customer@demo.feastquarter.test')).toBeTruthy();
   });
 });
 

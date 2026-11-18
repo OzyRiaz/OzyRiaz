@@ -21,7 +21,7 @@ export default async function Register({ searchParams }: { searchParams: Promise
           <Submit className="w-full" pendingText="Creating account…">Create account</Submit>
         </ActionForm>
         <p className="mt-4 text-center text-sm text-muted">Already registered? <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-semibold text-navy underline">Sign in</Link></p>
-        <p className="mt-2 text-center text-xs text-muted">Own a restaurant? <Link href="/partner" className="underline">Apply to join BD Feast</Link></p>
+        <p className="mt-2 text-center text-xs text-muted">Own a restaurant? <Link href="/partner" className="underline">Apply to join FeastQuarter</Link></p>
       </Card>
     </Container>
   );
