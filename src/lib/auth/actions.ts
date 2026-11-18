@@ -38,7 +38,11 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
     await setDemoCookie(p.id);
   } else {
     const { error } = await (await supa()).auth.signInWithPassword({ email, password });
-    if (error) return { error: 'Email or password is incorrect' };
+    if (error) {
+      if (/not confirmed/i.test(error.message)) return { error: 'Please confirm your email first: check your inbox (and spam) for the link. In Supabase you can turn off "Confirm email" while testing.' };
+      if (/rate limit|too many/i.test(error.message)) return { error: 'Too many attempts. Please wait a minute and try again.' };
+      return { error: 'Email or password is incorrect' };
+    }
   }
   redirect(safeNext(fd.get('next')));
 }
@@ -61,8 +65,10 @@ export async function registerAction(_: FormState, fd: FormData): Promise<FormSt
   } else {
     // Role is never taken from user input: a DB trigger creates the profile as 'customer'.
     const s = await supa();
-    const { error } = await s.auth.signUp({ email, password, options: { data: { full_name } } });
+    const { data, error } = await s.auth.signUp({ email, password, options: { data: { full_name } } });
     if (error) return { error: error.message };
+    // With "Confirm email" on, Supabase creates the user but returns no session until the link is clicked.
+    if (!data.session) return { ok: 'Account created. Check your email to confirm it, then sign in.' };
   }
   redirect(safeNext(fd.get('next')));
 }
