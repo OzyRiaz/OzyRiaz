@@ -1,21 +1,39 @@
 # FeastQuarter — Production readiness (honest status)
 
-**Verdict: NOT ready for live payments or the first five restaurants yet.** The software is built and heavily unit-tested, but the critical end-to-end flow has only been run in *demo mode* and against *mocked* Stripe. Closing the blockers below is required first.
+**Verdict: NOT ready for live payments or the first five restaurants yet.** The software is built and heavily unit-tested, and (19 Nov 2026) the core customer/refund flow has now been run once end to end in **Stripe test mode + live Supabase**. It has not been run with real money, real restaurants or production hosting. The blockers below still need closing first.
 Legend: ✅ implemented & automatically tested · 🔧 implemented, needs external configuration/verification · ⛔ not implemented / blocked.
+
+## 0. Verified in a real Stripe TEST-mode run (19 Nov 2026, local laptop, live Supabase) — and what was NOT
+**Verified by hand (test cards, no real money):**
+- Delivery order £40.00 food + £2.50 delivery + **£0.99 service fee = £43.49**: basket, Stripe Checkout total and receipt all agree.
+- Signed webhook marked the order paid; restaurant dashboard showed order value without the 99p.
+- Collection order £20.00 + £0.99 = **£20.99** (no delivery line); restaurant "you receive" £18.00 (10% commission only); accept → complete worked.
+- **Decline** refunded £43.49 including the 99p; Stripe refund and transfer reversal (restaurant share £38.50) both created, no reversal error.
+- **Partial £5.00 refund**: commission returned £0.50, service fee untouched, restaurant share £4.50, Stripe refund and reversal IDs recorded.
+- Admin dashboard/reports showed the two revenue streams, refunds split, and real Stripe processing fee (£1.57) read from Stripe, giving a negative contribution on the declined order (Stripe does not return processing fees on refunds).
+- A race (Stripe refund webhook logged the refund a second time) was found in this run and fixed with a regression test. The one duplicate row it created remains in the test data.
+**Not verified:**
+- Dispute/chargeback flow, payout events, weekly payout setting, subscription flow, restaurant Stripe onboarding on the final Accounts v2 code, email delivery, Netlify functions, production hosting, anything in live mode.
+- The Stripe dashboard could not be opened for the account the app's key belongs to (`acct_1UcMJW…`): it is not linked to the owner's Stripe login. The checks above were made from the app's own records, the Stripe CLI listener output and Stripe object IDs, not from the Stripe dashboard. Find out how that account was created and link it, or recreate keys from a sandbox the owner can see.
+- The unexplained Stripe fee (£1.57 on £43.49, more than the illustrative 1.5% + 20p) must be explained by Stripe or your accountant before pricing is relied on.
+- Stripe's CLI login failed (403) because of the same account mismatch; the listener was run with the app's key instead. Production uses real webhook endpoints, not the CLI.
 
 ## 1. Blockers before the first five restaurants can trade
 | # | Blocker | Owner |
 |---|---|---|
 | 1 | **Real end-to-end test in Stripe sandbox + Supabase**: onboard test restaurant → order → webhook marks paid → application fee = 10% food → accept → payout; refund (full/partial) incl. fee refund; decline→refund; dispute event; subscription off. *Never done against real Stripe in this codebase's tests (all mocked).* | Dev + you |
 | 2 | **Merge the laptop's uncommitted Stripe "Accounts v2" onboarding change** (`src/lib/services/connect.ts`) — it exists only on your laptop; commit/push it, then re-run the sandbox test. | You/laptop Claude Code |
-| 3 | **Apply migrations 0004–0007 to the live Supabase project** (additive, idempotent) and run `npm run live:check`. | You |
+| 3 | ~~Apply migrations 0004–0007~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
 | 4 | **Legal/commercial:** solicitor-reviewed customer terms, restaurant partner agreement (commission, refunds, disputes, drivers), privacy policy, allergen position, complaints process. Current pages are **placeholders**. | Solicitor |
 | 5 | **Tax:** accountant sign-off on VAT treatment of the 10% commission and of the marketplace model (see §3). | Accountant |
 | 6 | **Business entity + business bank + Stripe account activation** (live mode, KYC/KYB, Connect platform review). Live keys need your explicit authorisation. | You |
 | 7 | **Hosting env:** Netlify env vars incl. `CRON_SECRET`; two Stripe webhook endpoints; verified email domain (Resend) so order emails really send. | You/Dev |
 | 8 | **Supabase backups:** free plan has no point-in-time recovery. Choose a paid plan or scheduled exports and test a restore before launch. | You |
 | 9 | **Restaurant verification process** (food business registration, hygiene rating, ID) run by a human before each approval — the app enforces that the details are on file, not that they're true. | You |
-| 10 | Replace/rotate the Supabase secret key that appeared in screenshots (Project Settings → API Keys). | You |
+| 10 | Replace/rotate the Supabase secret key that appeared in screenshots (Project Settings → API Keys) — `.env.local` was photographed again on 19 Nov. Owner has chosen to defer this; do it before any real data. | You |
+| 11 | Link the Stripe account behind the app's key to the owner's Stripe login (or recreate keys from a visible sandbox) so payments can be inspected in the dashboard. | You/laptop Claude Code |
+| 12 | Tip wording: tips go to the restaurant, not to drivers directly. Settle the customer-facing label and put the Employment (Allocation of Tips) Act 2023 duty in the partner agreement. | Solicitor |
+| 13 | Decide how FeastQuarter treats the Stripe fee on declined/timed-out orders (non-refundable, absorbed by FeastQuarter today). | You/accountant |
 
 ## 2. Feature status
 ### ✅ Implemented and tested (automated)
