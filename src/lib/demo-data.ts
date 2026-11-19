@@ -5,6 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { Db } from './db/types';
+import { CITIES } from './cities';
 import { hashPassword } from './password';
 import { computeTotals, priceLine } from './pricing';
 import type { MenuItem, OptionGroup, Restaurant } from './types';
@@ -178,6 +179,7 @@ const mk = <T extends object>(o: T) => o;
 export async function ensureDemoSeed(db: Db): Promise<void> {
   if (await db.get('platform_settings', { id: 'main' })) return;
   await db.insert('platform_settings', DEFAULT_SETTINGS);
+  for (const c of CITIES) await db.insert('cities', { slug: c.slug, name: c.name, areas: c.areas, active: c.active });
 
   const user = async (email: string, full_name: string, role: 'admin' | 'customer' | 'restaurant') => {
     const p = await db.insert<{ id: string }>('profiles', { id: stableId(email), email, full_name, phone: null, role, suspended: false, deleted_at: null });

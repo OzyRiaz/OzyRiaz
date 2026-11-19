@@ -1,4 +1,4 @@
-import { cityForOutward } from './cities';
+import { cityForOutward, type City } from './cities';
 
 const PC = /^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/;
 
@@ -27,7 +27,7 @@ export function areaMatches(area: string, pc: { outward: string; sector?: string
   return a === pc.outward;
 }
 
-export function postcodeInServedCity(pc: { outward: string }) {
-  const city = cityForOutward(pc.outward);
+export function postcodeInServedCity(pc: { outward: string }, cities?: City[]) {
+  const city = cityForOutward(pc.outward, cities);
   return city && city.active ? city : null;
 }

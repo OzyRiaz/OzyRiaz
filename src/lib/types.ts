@@ -124,6 +124,7 @@ export interface OrderLine {
   qty: number;
   unit_price_pence: number; // includes option extras
   options: { group: string; choice: string; price_pence: number }[];
+  option_ids?: string[]; // chosen choice ids (lets "order again" rebuild the line)
   note?: string | null;
   allergens: string[];
 }
@@ -195,6 +196,7 @@ export interface Promotion {
   used_count: number;
   funded_by: 'platform' | 'restaurant';
   restaurant_id: string | null; // null = any restaurant
+  city_slug: string | null; // null = any city
   created_at: string;
 }
 

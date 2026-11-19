@@ -3,7 +3,9 @@ import { isDemo } from '../config';
 import { areaMatches, parsePostcode, parseOutwardOnly, postcodeInServedCity } from '../postcode';
 import type { DeliveryArea, MenuCategory, MenuItem, Restaurant } from '../types';
 import { isOpenNow } from '../hours';
+import { cityForOutward } from '../cities';
 import { getSettings } from './settings';
+import { getCities } from './cities';
 
 export type Availability = 'delivers' | 'collection_only' | 'unavailable' | 'unknown';
 
@@ -34,18 +36,22 @@ export function availabilityFor(r: Restaurant, areas: DeliveryArea[], postcode: 
 
 export async function listRestaurants(opts: { postcode?: string | null; cuisine?: string | null; q?: string | null; featuredOnly?: boolean } = {}): Promise<RestaurantCard[]> {
   const db = await getDb();
+  const cities = await getCities();
   const [all0, areas, settings] = await Promise.all([db.select<Restaurant>('restaurants', { status: 'approved' }), db.select<DeliveryArea>('delivery_areas'), getSettings()]);
   const all = isDemo ? all0 : all0.filter((r) => !r.is_demo); // demonstration restaurants never appear in live mode
   const pc = opts.postcode?.trim() || null;
   const outward = pc ? parsePostcode(pc)?.outward ?? parseOutwardOnly(pc) : null;
-  const served = outward ? !!postcodeInServedCity({ outward }) : true;
+  const served = outward ? !!postcodeInServedCity({ outward }, cities) : true;
+  const pcCity = outward ? cityForOutward(outward, cities)?.slug ?? null : null;
   const q = opts.q?.trim().toLowerCase();
   const out: RestaurantCard[] = [];
   for (const r of all) {
     if (opts.featuredOnly && !r.featured) continue;
     if (opts.cuisine && !r.cuisines.some((c) => c.toLowerCase() === opts.cuisine!.toLowerCase())) continue;
     if (q && !`${r.name} ${r.cuisines.join(' ')} ${r.description}`.toLowerCase().includes(q)) continue;
-    const { availability, area } = availabilityFor(r, areas.filter((a) => a.restaurant_id === r.id), outward ? (pc as string) : null);
+    let { availability, area } = availabilityFor(r, areas.filter((a) => a.restaurant_id === r.id), outward ? (pc as string) : null);
+    // Collection is only sensible within the customer's own city: never offer a Leeds collection to a Bradford postcode.
+    if (outward && availability === 'collection_only' && r.city_slug && pcCity && r.city_slug !== pcCity) availability = 'unavailable';
     if (outward && (!served || availability === 'unavailable')) continue; // only show restaurants that can serve this postcode
     out.push({ ...r, availability, delivery_fee_pence: area?.fee_pence ?? null, open_now: isOpenNow(r.opening_hours), has_member_offer: settings.feature_plus_enabled && r.member_offer.enabled });
   }

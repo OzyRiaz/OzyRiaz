@@ -1,5 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { clientIp, rateLimit, TOO_MANY } from '@/lib/rate-limit';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { getSession, requireSession } from '@/lib/auth/session';
@@ -10,6 +12,8 @@ import { parsePostcode } from '@/lib/postcode';
 import { cancelMembership, startMembershipCheckout } from '@/lib/services/membership';
 import { createOrder, createPaymentSession, markOrderPaid, OrderError } from '@/lib/services/orders';
 import { buildQuote, QuoteError, type Quote } from '@/lib/services/quote';
+import { priceLine } from '@/lib/pricing';
+import { notify } from '@/lib/services/notify';
 import type { Address, Profile } from '@/lib/types';
 import { activateMembership } from '@/lib/services/membership';
 import { plusEnabled } from '@/lib/services/settings';
@@ -46,6 +50,8 @@ const placeSchema = quoteSchema.extend({
 export async function placeOrderAction(raw: unknown): Promise<{ url: string } | { error: string }> {
   const s = await getSession();
   if (!s) return { error: 'Please sign in to place your order' };
+  const rl = rateLimit(`order:${s.userId}`, 12, 10 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
   const p = placeSchema.safeParse(raw);
   if (!p.success) return { error: p.error.issues[0]?.message ?? 'Please check your details' };
   const d = p.data;
@@ -56,7 +62,9 @@ export async function placeOrderAction(raw: unknown): Promise<{ url: string } | 
       if (!d.address || !pc) return { error: 'Enter a valid delivery address and postcode' };
       address = { ...d.address, postcode: pc.normalised };
     }
-    const order = await createOrder({ user: s, restaurantId: d.restaurantId, lines: d.lines, fulfilment: d.fulfilment, address, note: d.note, phone: d.phone, promoCode: d.promoCode || null, tipPence: d.tipPence ?? 0, idempotencyKey: d.idempotencyKey });
+    let source: string | null = null, campaign: string | null = null;
+    try { const raw = (await cookies()).get('fq_attr')?.value; if (raw) { const a = JSON.parse(decodeURIComponent(raw)); source = String(a.src ?? '').slice(0, 40) || null; campaign = String(a.campaign ?? '').slice(0, 60) || null; } } catch { /* ignore malformed */ }
+    const order = await createOrder({ source, campaign, user: s, restaurantId: d.restaurantId, lines: d.lines, fulfilment: d.fulfilment, address, note: d.note, phone: d.phone, promoCode: d.promoCode || null, tipPence: d.tipPence ?? 0, idempotencyKey: d.idempotencyKey });
     if (order.payment_status === 'paid') return { url: `/orders/${order.id}` };
     const { url } = await createPaymentSession(order, s.email);
     return { url };
@@ -132,6 +140,8 @@ export async function updateProfileAction(_: FormState, fd: FormData): Promise<F
 
 export async function supportAction(_: FormState, fd: FormData): Promise<FormState> {
   const s = await getSession();
+  const rl = rateLimit(`support:${s?.userId ?? (await clientIp())}`, 5, 60 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
   const p = z.object({ email: z.string().trim().email('Enter a valid email'), subject: z.string().trim().min(3, 'Add a subject').max(120), message: z.string().trim().min(10, 'Please add a few more details').max(2000) }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { error: p.error.issues[0].message };
   await (await getDb()).insert('support_tickets', { user_id: s?.userId ?? null, ...p.data, status: 'open' });
@@ -154,4 +164,47 @@ export async function deleteAccountAction(_: FormState, fd: FormData): Promise<F
   const { logoutAction } = await import('@/lib/auth/actions');
   await logoutAction();
   return undefined;
+}
+
+/** Customer asks for a refund on a paid order. Creates a support ticket linked to the order for admin review (no automatic refund). */
+export async function requestRefundAction(_: FormState, fd: FormData): Promise<FormState> {
+  const s = await requireSession('/orders');
+  const rl = rateLimit(`refundreq:${s.userId}`, 5, 60 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
+  const reason = String(fd.get('reason') ?? '').trim();
+  if (reason.length < 10) return { error: 'Please tell us what went wrong (at least a sentence).' };
+  const db = await getDb();
+  const o = await db.get<{ id: string; reference: string; customer_id: string; payment_status: string; total_pence: number; refunded_pence: number }>('orders', { id: String(fd.get('order')) });
+  if (!o || o.customer_id !== s.userId) return { error: 'Order not found' };
+  if (!['paid', 'partially_refunded'].includes(o.payment_status) || o.refunded_pence >= o.total_pence) return { error: 'This order is not eligible for a refund request.' };
+  const dup = (await db.select<{ status: string }>('support_tickets', { order_id: o.id, kind: 'refund_request' })).some((t) => t.status === 'open');
+  if (dup) return { error: 'You already have an open refund request for this order. We will reply by email.' };
+  await db.insert('support_tickets', { user_id: s.userId, email: s.email, subject: `Refund request: ${o.reference}`, message: reason.slice(0, 2000), status: 'open', order_id: o.id, kind: 'refund_request' });
+  if (process.env.ADMIN_NOTIFY_EMAIL) await notify({ kind: 'refund_request_admin', to: process.env.ADMIN_NOTIFY_EMAIL, subject: `Refund request: ${o.reference}`, body: `${s.email} asked for a refund on ${o.reference}: ${reason.slice(0, 500)}` });
+  return { ok: 'Request sent. We\'ll review it and email you. For late or wrong food you can also phone the restaurant — their number is on this page.' };
+}
+
+/** Rebuilds a previous order against TODAY'S menu. Unavailable items are skipped and reported; prices are always re-read from the menu. */
+export async function reorderAction(orderId: string): Promise<{ ok: true; restaurant: { id: string; slug: string; name: string }; lines: { itemId: string; name: string; qty: number; optionChoiceIds: string[]; optionLabels: string[]; unitPence: number; note?: string }[]; skipped: string[] } | { ok: false; error: string }> {
+  const s = await requireSession('/orders');
+  const db = await getDb();
+  const o = await db.get<{ id: string; customer_id: string; restaurant_id: string; lines: { item_id: string; name: string; qty: number; options: { group: string; choice: string }[]; option_ids?: string[]; note?: string | null }[] }>('orders', { id: orderId });
+  if (!o || o.customer_id !== s.userId) return { ok: false, error: 'Order not found' };
+  const r = await db.get<{ id: string; slug: string; name: string; status: string; accepting_orders: boolean }>('restaurants', { id: o.restaurant_id });
+  if (!r || r.status !== 'approved') return { ok: false, error: 'This restaurant is not taking orders right now.' };
+  if (r.accepting_orders === false) return { ok: false, error: `${r.name} is offline right now.` };
+  const items = await db.select<import('@/lib/types').MenuItem>('menu_items', { restaurant_id: r.id });
+  const lines: { itemId: string; name: string; qty: number; optionChoiceIds: string[]; optionLabels: string[]; unitPence: number; note?: string }[] = [], skipped: string[] = [];
+  for (const l of o.lines) {
+    const it = items.find((i) => i.id === l.item_id);
+    if (!it || !it.available) { skipped.push(l.name); continue; }
+    const all = it.option_groups.flatMap((g) => g.choices);
+    const ids = (l.option_ids?.length ? l.option_ids : l.options.map((x) => all.find((c) => c.name === x.choice)?.id).filter((x): x is string => !!x)).filter((id) => all.some((c) => c.id === id));
+    try {
+      const priced = priceLine(it, { itemId: it.id, qty: l.qty, optionChoiceIds: ids, note: l.note });
+      lines.push({ itemId: it.id, name: it.name, qty: l.qty, optionChoiceIds: ids, optionLabels: priced.options.map((x) => x.choice), unitPence: priced.unit_price_pence, note: l.note ?? undefined });
+    } catch { skipped.push(l.name); }
+  }
+  if (!lines.length) return { ok: false, error: 'None of the items from that order are available right now.' };
+  return { ok: true, restaurant: { id: r.id, slug: r.slug, name: r.name }, lines, skipped };
 }

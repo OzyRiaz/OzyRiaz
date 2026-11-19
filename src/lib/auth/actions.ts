@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from '../password';
 import type { Profile } from '../types';
 import { DEMO_COOKIE, signDemo } from './demo-cookie';
 import type { FormState } from '../form';
+import { clientIp, rateLimit, TOO_MANY } from '../rate-limit';
 
 
 const creds = z.object({ email: z.string().trim().toLowerCase().email('Enter a valid email address'), password: z.string().min(8, 'Password must be at least 8 characters') });
@@ -29,6 +30,8 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   const parsed = creds.safeParse({ email: fd.get('email'), password: fd.get('password') });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { email, password } = parsed.data;
+  const rl = rateLimit(`login:${await clientIp()}:${email}`, 8, 10 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
   if (isDemo) {
     const db = await getDb();
     const c = await db.get<{ user_id: string; password_hash: string }>('demo_credentials', { email });
@@ -52,6 +55,8 @@ export async function registerAction(_: FormState, fd: FormData): Promise<FormSt
     .safeParse({ email: fd.get('email'), password: fd.get('password'), full_name: fd.get('full_name'), consent: fd.get('consent') });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { email, password, full_name } = parsed.data;
+  const rl = rateLimit(`register:${await clientIp()}`, 6, 60 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
   if (isDemo) {
     const db = await getDb();
     try {

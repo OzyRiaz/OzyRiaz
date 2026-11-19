@@ -18,7 +18,7 @@ export function Footer({ plus = false }: { plus?: boolean }) {
         </div>
         {col('Customers', [['/restaurants', 'Find food'], ...(plus ? ([['/plus', 'FeastQuarter Plus']] as [string, string][]) : []), ['/offers', 'Offers'], ['/help', 'Help & support']])}
         {col('Restaurants', [['/partner', 'Partner with us'], ['/login?next=/dashboard', 'Restaurant sign in']])}
-        {col('Legal', [['/legal/terms', 'Terms'], ['/legal/privacy', 'Privacy'], ['/legal/allergens', 'Allergen information']])}
+        {col('Legal', [['/legal/terms', 'Customer terms'], ['/legal/partner-terms', 'Restaurant terms'], ['/legal/privacy', 'Privacy'], ['/legal/allergens', 'Allergen information']])}
       </div>
       <p className="mx-auto mt-10 max-w-6xl px-4 text-xs text-white/50 sm:px-6">© FeastQuarter. Restaurants make and deliver their own orders. Allergies: always tell the restaurant before ordering.</p>
     </footer>

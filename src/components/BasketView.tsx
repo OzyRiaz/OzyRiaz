@@ -19,7 +19,7 @@ export function useQuote() {
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        const r = await quoteAction({ restaurantId: basket.restaurantId, fulfilment: prefs.fulfilment, postcode: prefs.postcode || null, promoCode: prefs.promo || null, lines: basket.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionChoiceIds: l.optionChoiceIds, note: l.note ?? null })) });
+        const r = await quoteAction({ restaurantId: basket.restaurantId, fulfilment: prefs.fulfilment, postcode: prefs.postcode || null, promoCode: prefs.promo || null, tipPence: prefs.tip || 0, lines: basket.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionChoiceIds: l.optionChoiceIds, note: l.note ?? null })) });
         if (my === seq.current) setRes(r);
       } catch { if (my === seq.current) setRes({ ok: false, error: 'Could not price your basket. Check your connection.' }); }
       finally { if (my === seq.current) setLoading(false); }
@@ -39,7 +39,9 @@ export function Summary({ res, loading }: { res: QuoteResult | null; loading: bo
       {row('Food subtotal', fmt(q.subtotal_pence))}
       {q.discount_pence > 0 && row(q.discount_label ?? 'Discount', `−${fmt(q.discount_pence)}`, 'font-medium text-ok')}
       {q.delivery_fee_pence > 0 && row('Delivery (set by restaurant)', fmt(q.delivery_fee_pence))}
+      {q.tip_pence > 0 && row('Tip (goes to the restaurant)', fmt(q.tip_pence))}
       <div className="flex justify-between border-t border-line pt-3 font-display text-xl font-semibold text-navy"><dt>Total</dt><dd>{fmt(q.total_pence)}</dd></div>
+      <p className="text-xs text-muted">The price you see is what you pay: no service fee and no card surcharge.</p>
       {q.memberHint && <p className="rounded-lg bg-gold-100 px-3 py-2 text-xs text-[#5c430a]">{q.memberHint}. <Link href="/plus" className="font-semibold underline">Learn about FeastQuarter Plus</Link></p>}
       {q.promoError && <p role="alert" className="text-xs font-medium text-danger">{q.promoError}</p>}
       {!q.open && <p className="text-xs text-danger">This restaurant is currently closed.</p>}
@@ -93,6 +95,8 @@ export function BasketView() {
               <input value={prefs.postcode} onChange={(e) => setPrefs({ postcode: e.target.value.toUpperCase() })} placeholder="BD5 0AA" autoComplete="postal-code" className="mt-1 w-full rounded-xl border border-line px-3 py-2.5 text-base font-normal focus:border-navy focus:outline-none focus:ring-2 focus:ring-gold/60" />
             </label>
           )}
+          <fieldset className="mt-3"><legend className="text-sm font-semibold text-navy">Add a tip <span className="font-normal text-muted">(optional — goes to the restaurant)</span></legend>
+            <div className="mt-1.5 grid grid-cols-4 gap-1.5">{[0, 100, 200, 300].map((t) => <button key={t} type="button" aria-pressed={prefs.tip === t} onClick={() => setPrefs({ tip: t })} className={clsx('rounded-lg border py-2 text-sm font-semibold', prefs.tip === t ? 'border-navy bg-navy text-white' : 'border-line text-navy hover:bg-navy-100')}>{t === 0 ? 'None' : fmt(t)}</button>)}</div></fieldset>
           <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); setPrefs({ promo: promo.trim().toUpperCase() }); }}>
             <label className="sr-only" htmlFor="promo">Promo code</label>
             <input id="promo" value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Promo code" className="min-w-0 flex-1 rounded-xl border border-line px-3 py-2 text-sm uppercase focus:border-navy focus:outline-none focus:ring-2 focus:ring-gold/60" />

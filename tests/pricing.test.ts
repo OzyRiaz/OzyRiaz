@@ -141,7 +141,7 @@ describe('discounts', () => {
     expect(chooseDiscount([{ label: 'a', amountPence: 100, fundedBy: 'restaurant' }, { label: 'b', amountPence: 300, fundedBy: 'platform' }])!.label).toBe('b');
     expect(chooseDiscount([])).toBeNull();
   });
-  const promo: Promotion = { id: '1', code: 'X', description: '', kind: 'percent', value: 10, min_spend_pence: 1000, active: true, starts_at: null, ends_at: null, max_uses: 1, used_count: 0, funded_by: 'platform', restaurant_id: null, created_at: '' };
+  const promo: Promotion = { id: '1', code: 'X', description: '', kind: 'percent', value: 10, min_spend_pence: 1000, active: true, starts_at: null, ends_at: null, max_uses: 1, used_count: 0, funded_by: 'platform', restaurant_id: null, city_slug: null, created_at: '' };
   it('validates promo rules', () => {
     expect(promoDiscount(2000, promo, 'r')).toMatchObject({ amountPence: 200 });
     expect(promoDiscount(500, promo, 'r')).toHaveProperty('error');
@@ -149,6 +149,8 @@ describe('discounts', () => {
     expect(promoDiscount(2000, { ...promo, active: false }, 'r')).toHaveProperty('error');
     expect(promoDiscount(2000, { ...promo, ends_at: '2000-01-01' }, 'r')).toHaveProperty('error');
     expect(promoDiscount(2000, { ...promo, restaurant_id: 'other' }, 'r')).toHaveProperty('error');
+    expect(promoDiscount(2000, { ...promo, city_slug: 'leeds' }, 'r', new Date(), 'bradford')).toHaveProperty('error'); // city-scoped
+    expect(promoDiscount(2000, { ...promo, city_slug: 'bradford' }, 'r', new Date(), 'bradford')).toMatchObject({ amountPence: 200 });
   });
 });
 

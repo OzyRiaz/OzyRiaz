@@ -22,7 +22,7 @@ export function priceLine(item: MenuItem, input: BasketLineInput): OrderLine {
   for (const id of chosen) if (!known.has(id)) throw new PricingError('Unknown option selected');
   return {
     item_id: item.id, name: item.name, qty: input.qty, unit_price_pence: item.price_pence + extras,
-    options, note: input.note?.slice(0, 200) ?? null, allergens: item.allergens,
+    options, option_ids: [...chosen], note: input.note?.slice(0, 200) ?? null, allergens: item.allergens,
   };
 }
 
@@ -37,12 +37,13 @@ export function memberDiscount(subtotal: number, offer: MemberOffer, settings: P
   return { label: `FeastQuarter Plus member offer (${pct}% off)`, amountPence, fundedBy: settings.member_discount_funding };
 }
 
-export function promoDiscount(subtotal: number, promo: Promotion, restaurantId: string, now = new Date()): DiscountCandidate | { error: string } {
+export function promoDiscount(subtotal: number, promo: Promotion, restaurantId: string, now = new Date(), restaurantCity: string | null = null): DiscountCandidate | { error: string } {
   if (!promo.active) return { error: 'This code is no longer active' };
   if (promo.starts_at && new Date(promo.starts_at) > now) return { error: 'This code is not valid yet' };
   if (promo.ends_at && new Date(promo.ends_at) < now) return { error: 'This code has expired' };
   if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return { error: 'This code has been fully redeemed' };
   if (promo.restaurant_id && promo.restaurant_id !== restaurantId) return { error: 'This code is not valid for this restaurant' };
+  if (promo.city_slug && promo.city_slug !== restaurantCity) return { error: 'This code is not valid in this city' };
   if (subtotal < promo.min_spend_pence) return { error: `Spend a minimum of £${(promo.min_spend_pence / 100).toFixed(2)} to use this code` };
   const raw = promo.kind === 'percent' ? Math.round((subtotal * promo.value) / 100) : promo.value;
   const amountPence = Math.min(raw, subtotal);

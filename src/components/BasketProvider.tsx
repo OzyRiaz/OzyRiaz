@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 export interface BasketLine { key: string; itemId: string; name: string; qty: number; optionChoiceIds: string[]; optionLabels: string[]; unitPence: number; note?: string }
 export interface Basket { id: string; restaurantId: string; restaurantSlug: string; restaurantName: string; lines: BasketLine[] }
 
-export interface Prefs { fulfilment: 'delivery' | 'collection'; postcode: string; promo: string }
+export interface Prefs { fulfilment: 'delivery' | 'collection'; postcode: string; promo: string; tip: number }
 interface Ctx {
   prefs: Prefs;
   setPrefs: (p: Partial<Prefs>) => void;
@@ -24,7 +24,7 @@ const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? cry
 export function BasketProvider({ children }: { children: ReactNode }) {
   const [basket, setBasket] = useState<Basket | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [prefs, setPrefsState] = useState<Prefs>({ fulfilment: 'delivery', postcode: '', promo: '' });
+  const [prefs, setPrefsState] = useState<Prefs>({ fulfilment: 'delivery', postcode: '', promo: '', tip: 0 });
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY); if (raw) setBasket(JSON.parse(raw));

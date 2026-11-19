@@ -3,6 +3,7 @@ import { Fraunces, Inter } from 'next/font/google';
 import './globals.css';
 import { BasketProvider } from '@/components/BasketProvider';
 import { RegisterSW, TabBar } from '@/components/Chrome';
+import { AttributionCapture } from '@/components/AttributionCapture';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import { plusEnabled } from '@/lib/services/settings';
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <TabBar />
         </BasketProvider>
         <RegisterSW />
+        <AttributionCapture />
       </body>
     </html>
   );

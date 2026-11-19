@@ -2,7 +2,7 @@ import { appUrl } from '../config';
 import { getDb } from '../db';
 import { fmt } from '../money';
 import type { Order, Profile, Restaurant } from '../types';
-import { notify } from './notify';
+import { notify, sendSms } from './notify';
 import { refundOrder } from './orders';
 
 export class OperationsError extends Error {}
@@ -47,6 +47,7 @@ export async function processUnansweredOrders(now = new Date()) {
       out.autoDeclined++;
     } else if (ageMin >= escalateAfterMin() && !o.escalated_at) {
       await db.update('orders', { id: o.id }, { escalated_at: now.toISOString() });
+      await sendSms('order_reminder', r.phone, `FeastQuarter URGENT: order ${o.reference} is waiting ${Math.round(ageMin)} min. Accept or decline in your dashboard.`);
       await notify({ kind: 'order_reminder', to: r.email, subject: `ACTION NEEDED: order ${o.reference} is waiting`, body: `A paid ${o.fulfilment} order for ${fmt(o.total_pence)} has been waiting ${Math.round(ageMin)} minutes. Accept or decline it now: ${appUrl()}/dashboard. It will be auto-declined and refunded after ${timeoutAfterMin()} minutes.` });
       await notify({ kind: 'order_escalation_admin', to: process.env.ADMIN_NOTIFY_EMAIL, subject: `Escalation: ${r.name} has not answered order ${o.reference}`, body: `Waiting ${Math.round(ageMin)} min. Phone the restaurant: ${r.phone ?? 'no phone on file'}.` });
       out.escalated++;

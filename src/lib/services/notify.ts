@@ -24,6 +24,32 @@ export function emailHtml(subject: string, body: string): string {
  * - Otherwise status is 'skipped': NOTHING was delivered. The admin outbox view shows this honestly.
  * SMS/push are not implemented.
  */
+/** UK mobile/E.164 normalisation for SMS. Returns null if the number can't be made into a valid E.164 number. */
+export function toE164(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const d = phone.replace(/[\s()-]/g, '');
+  const e = d.startsWith('+') ? d : d.startsWith('00') ? '+' + d.slice(2) : d.startsWith('0') ? '+44' + d.slice(1) : d.startsWith('44') ? '+' + d : d;
+  return /^\+[1-9]\d{7,14}$/.test(e) ? e : null;
+}
+
+/**
+ * Optional SMS BACKUP for time-critical restaurant alerts. OFF unless SMS_BACKUP_ENABLED=true AND Twilio credentials are set
+ * (it is a chargeable service: needs the owner's approval). Every attempt is recorded in the outbox as sent/failed/skipped.
+ */
+export async function sendSms(kind: string, phone: string | null | undefined, body: string) {
+  const db = await getDb();
+  const to = toE164(phone);
+  const rec = await db.insert<Notification>('notifications', { kind: `${kind}_sms`, to_email: to ?? String(phone ?? ''), subject: 'SMS', body, status: 'queued', detail: null });
+  const sid = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN, from = process.env.TWILIO_FROM;
+  if (process.env.SMS_BACKUP_ENABLED !== 'true' || !sid || !token || !from) { await db.update('notifications', { id: rec.id }, { status: 'skipped', detail: 'SMS backup not enabled/configured' }); return 'skipped' as const; }
+  if (!to) { await db.update('notifications', { id: rec.id }, { status: 'failed', detail: 'Invalid phone number' }); return 'failed' as const; }
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ To: to, From: from, Body: body.slice(0, 300) }) });
+    if (!res.ok) throw new Error(`Twilio ${res.status}`);
+    await db.update('notifications', { id: rec.id }, { status: 'sent', detail: null }); return 'sent' as const;
+  } catch (e) { await db.update('notifications', { id: rec.id }, { status: 'failed', detail: String((e as Error).message).slice(0, 200) }); return 'failed' as const; }
+}
+
 export async function notify(n: { kind: string; to: string | null | undefined; subject: string; body: string }): Promise<Notification | null> {
   if (!n.to) return null;
   const db = await getDb();

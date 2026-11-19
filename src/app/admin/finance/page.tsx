@@ -5,7 +5,7 @@ import { fmt } from '@/lib/money';
 import type { Transaction } from '@/lib/types';
 import { ActionForm, Submit } from '@/components/ActionForm';
 import { Field, Input, Select, Notice } from '@/components/ui';
-import { addExpenseAction, reconcileFeesAction } from '../actions';
+import { addExpenseAction, reconcileFeesAction, recoverDisputeAction } from '../actions';
 export const metadata: Metadata = { title: 'Finance — Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +33,10 @@ export default async function Finance() {
           <div className="sm:col-span-4"><Submit variant="outline">Record cost</Submit></div></ActionForm></Card>
       <Table title="Failed payments" rows={tx.filter((t) => t.kind === 'payment_failed')} empty="No failed payments." />
       <Table title="Disputes" rows={tx.filter((t) => t.kind === 'dispute')} empty="No disputes. Respond to disputes in the Stripe dashboard before the evidence deadline." />
+      {tx.some((t) => t.kind === 'dispute' && t.status === 'open' && t.order_id) && (
+        <Card className="p-5"><h3 className="font-display text-lg font-semibold text-navy">Recover a disputed amount from the restaurant (optional)</h3>
+          <p className="mt-1 text-sm text-muted">Stripe debits disputed amounts and fees from FeastQuarter. Recovering from the restaurant (transfer reversal) depends on your signed agreement — it never happens automatically. Capped at the restaurant&apos;s allocation.</p>
+          {tx.filter((t) => t.kind === 'dispute' && t.status === 'open' && t.order_id).map((t) => <ActionForm key={t.id} action={recoverDisputeAction} className="mt-3 flex flex-wrap items-end gap-2"><input type="hidden" name="order" value={t.order_id!} /><span className="text-xs text-muted">{t.note}</span><Input name="amount" inputMode="decimal" placeholder="£ to recover" required className="w-32" /><Submit size="sm" variant="danger">Reverse transfer</Submit></ActionForm>)}</Card>)}
       <Table title="Refunds" rows={tx.filter((t) => t.kind === 'refund')} empty="No refunds." />
       <Table title="Recent transactions" rows={tx.slice(0, 50)} empty="No transactions yet." />
     </div>

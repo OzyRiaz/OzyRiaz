@@ -7,7 +7,8 @@ import { Photo } from '@/components/FoodArt';
 import { Badge, Card, Container, Notice } from '@/components/ui';
 import { getSession } from '@/lib/auth/session';
 import { getDb } from '@/lib/db';
-import { isDemo } from '@/lib/config';
+import { appUrl, isDemo } from '@/lib/config';
+import { ShareButton } from '@/components/ShareButton';
 import { DAY_KEYS, isOpenNow } from '@/lib/hours';
 import { fmt } from '@/lib/money';
 import { currentPostcode } from '@/lib/postcode-ctx';
@@ -18,7 +19,9 @@ import type { DeliveryArea } from '@/lib/types';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const r = await getRestaurantBySlug((await params).slug);
-  return { title: r?.status === 'approved' ? r.name : 'Restaurant' };
+  if (r?.status !== 'approved') return { title: 'Restaurant' };
+  const url = `${appUrl()}/restaurants/${r.slug}`;
+  return { title: r.name, description: `${r.description} Order delivery or collection on FeastQuarter.`, alternates: { canonical: url }, openGraph: { title: `${r.name} on FeastQuarter`, description: r.description, url, type: 'website', images: [{ url: '/brand/og-image.png', width: 1200, height: 630 }] } };
 }
 
 export default async function RestaurantPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ postcode?: string }> }) {
@@ -42,6 +45,7 @@ export default async function RestaurantPage({ params, searchParams }: { params:
           <div>
             <div className="flex flex-wrap gap-2">{r.is_demo && <Badge tone="demo">Demonstration restaurant</Badge>}{r.status !== 'approved' && <Badge tone="red">Not live — {r.status}</Badge>}{offline ? <Badge tone="red">Offline — not taking orders</Badge> : !open && <Badge tone="grey">Closed now</Badge>}{plusOn && r.member_offer.enabled && <Badge tone="gold"><Crown size={12} />{r.member_offer.percent}% off for FeastQuarter Plus</Badge>}</div>
             <h1 className="mt-3 font-display text-4xl font-semibold text-white sm:text-5xl">{r.name}</h1>
+            <div className="mt-2"><ShareButton url={`${appUrl()}/restaurants/${r.slug}`} title={r.name} /></div>
             <p className="mt-2 max-w-2xl text-white/75">{r.description}</p>
             <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><Clock size={15} className="text-gold" />Ready in ~{r.prep_minutes}–{r.prep_minutes + 15} min</span><span className="inline-flex items-center gap-1.5"><MapPin size={15} className="text-gold" />{r.address_line1}, {r.postcode}</span>{r.phone && <span className="inline-flex items-center gap-1.5"><Phone size={15} className="text-gold" />{r.phone}</span>}</p>
           </div>

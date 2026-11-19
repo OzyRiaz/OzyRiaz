@@ -6,7 +6,8 @@ import { RestaurantCard } from '@/components/RestaurantCard';
 import { Container, EmptyState, PageTitle } from '@/components/ui';
 import { currentPostcode } from '@/lib/postcode-ctx';
 import { listCuisines, listRestaurants } from '@/lib/services/restaurants';
-import { activeCities, listNames, plannedCities } from '@/lib/cities';
+import { listNames } from '@/lib/cities';
+import { getCities } from '@/lib/services/cities';
 import { parsePostcode, parseOutwardOnly, postcodeInServedCity } from '@/lib/postcode';
 
 export const metadata: Metadata = { title: 'Restaurants' };
@@ -15,7 +16,10 @@ export default async function Restaurants({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const postcode = await currentPostcode(sp);
   const outward = postcode ? parsePostcode(postcode)?.outward ?? parseOutwardOnly(postcode) : null;
-  const unserved = outward ? !postcodeInServedCity({ outward }) : false;
+  const allCities = await getCities();
+  const unserved = outward ? !postcodeInServedCity({ outward }, allCities) : false;
+  const activeCities = () => allCities.filter((c) => c.active);
+  const plannedCities = () => allCities.filter((c) => !c.active);
   const [list, cuisines] = await Promise.all([listRestaurants({ postcode, cuisine: sp.cuisine, q: sp.q }), listCuisines()]);
   const qs = (o: Record<string, string | undefined>) => { const p = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v) p.set(k, v); return `?${p}`; };
   return (

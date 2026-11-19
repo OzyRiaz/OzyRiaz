@@ -6,7 +6,7 @@ import { canTransition, labelFor, STATUS_LABEL } from '../order-state';
 import type { BasketLineInput } from '../pricing';
 import { getStripe } from '../stripe';
 import type { Fulfilment, Order, OrderStatus, Profile, Promotion, Restaurant, Session, Transaction } from '../types';
-import { notify } from './notify';
+import { notify, sendSms } from './notify';
 import { buildQuote, QuoteError } from './quote';
 import { isOpenNow } from '../hours';
 
@@ -142,6 +142,7 @@ export async function markOrderPaid(orderId: string, p: { paymentIntentId?: stri
   }
   const [customer, restaurant] = await Promise.all([db.get<Profile>('profiles', { id: order.customer_id }), db.get<Restaurant>('restaurants', { id: order.restaurant_id })]);
   await notify({ kind: 'order_confirmation', to: customer?.email, subject: `Order ${order.reference} confirmed`, body: `Thanks ${customer?.full_name ?? ''}! Your order from ${restaurant?.name} (${fmt(order.total_pence)}) has been paid and sent to the restaurant. Track it: ${appUrl()}/orders/${order.id}` });
+  void sendSms('restaurant_new_order', restaurant?.phone, `FeastQuarter: new ${order.fulfilment} order ${order.reference} (${fmt(order.total_pence)}). Open your dashboard to accept.`);
   await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New FeastQuarter order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence)}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
   return { changed: true, order: claimed[0] };
 }

@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const items = [['/dashboard', 'Orders'], ['/dashboard/menu', 'Menu'], ['/dashboard/delivery', 'Delivery'], ['/dashboard/offers', 'Member offers'], ['/dashboard/earnings', 'Earnings'], ['/dashboard/profile', 'Profile & hours'], ['/dashboard/staff', 'Staff'], ['/dashboard/payments', 'Payments']];
+const items = [['/dashboard', 'Orders'], ['/dashboard/menu', 'Menu'], ['/dashboard/delivery', 'Delivery'], ['/dashboard/offers', 'Member offers'], ['/dashboard/earnings', 'Earnings'], ['/dashboard/profile', 'Profile & hours'], ['/dashboard/staff', 'Staff'], ['/dashboard/promote', 'Promote'], ['/dashboard/payments', 'Payments']];
 export function DashNav() {
   const p = usePathname();
   return (

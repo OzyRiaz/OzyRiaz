@@ -11,12 +11,13 @@ import { pctLabel, fmt } from '@/lib/money';
 import { getDb } from '@/lib/db';
 import type { Promotion } from '@/lib/types';
 import { isDemo } from '@/lib/config';
-import { launchCity } from '@/lib/cities';
+import { getActiveCities } from '@/lib/services/cities';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ postcode?: string; denied?: string }> }) {
   const sp = await searchParams;
   const postcode = await currentPostcode(sp);
-  const city = launchCity();
+  const cityList = await getActiveCities();
+  const city = cityList[0] ?? { name: 'your city' };
   const [featured, cuisines, settings, promos] = await Promise.all([
     listRestaurants({ postcode, featuredOnly: true }), listCuisines(), getSettings(),
     getDb().then((d) => d.select<Promotion>('promotions', { active: true })),
@@ -29,7 +30,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
         <div aria-hidden className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold/15 blur-3xl" />
         <div aria-hidden className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-navy-700 blur-2xl" />
         <Container className="relative py-14 sm:py-24">
-          <p className="animate-rise text-sm font-semibold uppercase tracking-[0.2em] text-gold">Now in {city.name} · more UK cities coming</p>
+          <p className="animate-rise text-sm font-semibold uppercase tracking-[0.2em] text-gold">{cityList.length > 1 ? `Now in ${cityList.map((c) => c.name).join(', ')}` : `Now in ${city.name}`} · more UK cities coming</p>
           <h1 className="animate-rise mt-4 max-w-3xl font-display text-5xl font-semibold leading-[1.05] sm:text-7xl" style={{ animationDelay: '.05s' }}>
             Your City. Your Food. <span className="text-gold">Your Way.</span>
           </h1>

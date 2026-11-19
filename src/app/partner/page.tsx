@@ -12,7 +12,8 @@ import { pctLabel } from '@/lib/money';
 import { parsePostcode } from '@/lib/postcode';
 import { getSettings } from '@/lib/services/settings';
 import { notify } from '@/lib/services/notify';
-import { cityForOutward, launchCity } from '@/lib/cities';
+import { cityForOutward } from '@/lib/cities';
+import { getCities } from '@/lib/services/cities';
 export const metadata: Metadata = { title: 'Partner with FeastQuarter' };
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
@@ -31,12 +32,14 @@ async function applyAction(_: FormState, fd: FormData): Promise<FormState> {
   const pc = parsePostcode(p.data.postcode);
   if (!pc) return { error: 'Enter a valid UK postcode' };
   const db = await getDb();
+  const cities = await getCities();
+  if (!cityForOutward(pc.outward, cities)) return { error: 'We do not recognise that postcode area yet. Use the Contact page to register your interest.' };
   if (s.restaurantIds.length) return { error: 'Your account already manages a restaurant.' };
   try {
     const r = await db.insert<{ id: string }>('restaurants', {
       owner_id: s.userId, slug: `${slugify(p.data.name)}-${Math.random().toString(36).slice(2, 6)}`, name: p.data.name, description: p.data.description,
       cuisines: p.data.cuisines.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 4), address_line1: p.data.address_line1, postcode: pc.normalised,
-      city_slug: cityForOutward(pc.outward)?.slug ?? launchCity().slug, phone: p.data.phone, email: p.data.email, image_url: null, status: 'pending', is_demo: false, featured: false,
+      city_slug: cityForOutward(pc.outward, cities)?.slug ?? null, // any UK city can apply; it is only live once the city is active phone: p.data.phone, email: p.data.email, image_url: null, status: 'pending', is_demo: false, featured: false,
       opening_hours: defaultHours(), min_order_pence: 0, prep_minutes: 30, delivery_enabled: true, collection_enabled: true,
       member_offer: { enabled: false, percent: 0, min_spend_pence: 1500, description: '' },
       accepting_orders: false, // restaurants start OFFLINE; they go online once approved, onboarded and ready

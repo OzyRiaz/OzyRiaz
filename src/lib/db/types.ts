@@ -22,6 +22,7 @@ export const UNIQUE: Record<string, string[]> = {
   promotions: ['code'],
   memberships: ['user_id'],
   restaurant_payouts: ['stripe_payout_id'],
+  cities: ['slug'],
   stripe_events: ['id'],
   restaurant_staff: ['restaurant_id|user_id'],
 };

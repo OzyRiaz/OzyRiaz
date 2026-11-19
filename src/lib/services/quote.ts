@@ -6,6 +6,7 @@ import type { DeliveryArea, Fulfilment, MenuItem, OrderLine, Promotion, Restaura
 import { isDemo } from '../config';
 import { availabilityFor } from './restaurants';
 import { getSettings } from './settings';
+import { getCities } from './cities';
 import { getActiveMembership } from './membership';
 
 export interface QuoteInput {
@@ -54,7 +55,7 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
     if (!restaurant.delivery_enabled) throw new QuoteError('This restaurant does not offer delivery');
     const pc = parsePostcode(input.postcode ?? '');
     if (!pc) throw new QuoteError('Enter a valid UK postcode for delivery');
-    if (!postcodeInServedCity(pc)) throw new QuoteError('FeastQuarter is not available in your area yet');
+    if (!postcodeInServedCity(pc, await getCities())) throw new QuoteError('FeastQuarter is not available in your area yet');
     const areas = await db.select<DeliveryArea>('delivery_areas', { restaurant_id: restaurant.id });
     const { area } = availabilityFor(restaurant, areas, pc.normalised);
     if (!area) throw new QuoteError('This restaurant does not deliver to your postcode. Try collection instead.');
@@ -77,7 +78,7 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
     const promo = await db.get<Promotion>('promotions', { code: input.promoCode.trim().toUpperCase() });
     if (!promo) promoError = 'That code is not recognised';
     else {
-      const r = promoDiscount(subtotal, promo, restaurant.id);
+      const r = promoDiscount(subtotal, promo, restaurant.id, new Date(), restaurant.city_slug);
       if ('error' in r) promoError = r.error; else cands.push(r);
     }
   }

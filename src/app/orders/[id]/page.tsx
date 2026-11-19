@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { OrderTracker } from '@/components/OrderTracker';
 import { PrintButton } from '@/components/PrintButton';
+import { ReorderButton } from '@/components/ReorderButton';
+import { ActionForm } from '@/components/ActionForm';
+import { requestRefundAction } from '@/app/actions/customer';
+import { Textarea } from '@/components/ui';
 import { Submit } from '@/components/ActionForm';
 import { Badge, Card, Container, Notice } from '@/components/ui';
 import { requireSession } from '@/lib/auth/session';
@@ -33,7 +37,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     <Container className="max-w-3xl py-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><p className="text-sm text-muted">Order {o.reference}</p><h1 className="font-display text-3xl font-semibold text-navy">{r.name}</h1></div>
-        <div className="flex items-center gap-2"><Badge tone={o.status === 'completed' ? 'green' : ['rejected', 'cancelled', 'payment_failed'].includes(o.status) ? 'red' : 'gold'}>{labelFor(o.status, o.fulfilment)}</Badge><PrintButton /></div>
+        <div className="flex flex-wrap items-center gap-2"><ReorderButton orderId={o.id} /><Badge tone={o.status === 'completed' ? 'green' : ['rejected', 'cancelled', 'payment_failed'].includes(o.status) ? 'red' : 'gold'}>{labelFor(o.status, o.fulfilment)}</Badge><PrintButton /></div>
       </div>
       <div className="mt-5 space-y-4">
         {o.status === 'rejected' && <Notice tone="red">The restaurant couldn&apos;t accept this order{o.rejection_reason ? `: ${o.rejection_reason}` : ''}. You&apos;ve been refunded in full ({fmt(o.refunded_pence)}); it can take 5–10 working days to arrive.</Notice>}
@@ -62,6 +66,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
           <p className="mt-3 text-xs text-muted">Placed {new Date(o.created_at).toLocaleString('en-GB')}{o.paid_at ? ` · Paid ${new Date(o.paid_at).toLocaleString('en-GB')}` : ''}. Prices include any VAT the restaurant charges; this is not a VAT invoice.</p>
         </Card>
+        {['paid', 'partially_refunded'].includes(o.payment_status) && o.refunded_pence < o.total_pence && (
+          <Card className="no-print p-5"><details><summary className="cursor-pointer font-semibold text-navy">Problem with this order? Request a refund</summary>
+            <p className="mt-2 text-sm text-muted">Contact the restaurant first for late or incorrect food{r.phone ? ` (${r.phone})` : ''}. If it isn&apos;t resolved, tell us what happened and we&apos;ll review it. Your statutory rights are not affected.</p>
+            <ActionForm action={requestRefundAction} className="mt-3 space-y-3"><input type="hidden" name="order" value={o.id} /><Textarea name="reason" rows={3} minLength={10} required placeholder="What went wrong?" /><Submit variant="outline">Send refund request</Submit></ActionForm></details></Card>)}
       </div>
     </Container>
   );

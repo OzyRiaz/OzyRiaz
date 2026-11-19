@@ -29,11 +29,11 @@ export function CheckoutForm({ addresses, phone, email, isDemo, defaultCity }: {
     if (!terms) { setError('Please accept the Terms and Privacy Policy'); return; }
     start(async () => {
       const r = await placeOrderAction({
-        restaurantId: basket!.restaurantId, fulfilment: prefs.fulfilment, postcode: address?.postcode ?? null, promoCode: prefs.promo || null,
+        restaurantId: basket!.restaurantId, fulfilment: prefs.fulfilment, postcode: address?.postcode ?? null, promoCode: prefs.promo || null, tipPence: prefs.tip || 0,
         lines: basket!.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionChoiceIds: l.optionChoiceIds, note: l.note ?? null })),
         address, phone: f.phone, note: f.note || null, ackAllergens: ack,
         // Same basket + same details => same key => the server returns the existing order instead of creating a duplicate.
-        idempotencyKey: orderKey(basket!, [prefs.fulfilment, address, prefs.promo, f.note]),
+        idempotencyKey: orderKey(basket!, [prefs.fulfilment, address, prefs.promo, f.note, prefs.tip]),
       });
       if ('error' in r) { if (r.error.startsWith('Please sign in')) window.location.assign('/login?next=/checkout'); else setError(r.error); } else window.location.assign(r.url);
     });

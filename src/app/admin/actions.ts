@@ -9,6 +9,8 @@ import { parsePounds } from '@/lib/money';
 import { notify } from '@/lib/services/notify';
 import { reconcileStripeFees } from '@/lib/services/reconcile';
 import { setWeeklyPayouts } from '@/lib/services/payouts';
+import { recoverDisputeFromRestaurant } from '@/lib/services/disputes';
+import { CityError, setCityActive, upsertCity } from '@/lib/services/cities';
 import { applySettingsChange, SettingsError } from '@/lib/services/settings';
 import { OrderError, refundOrder } from '@/lib/services/orders';
 import type { Profile, Restaurant } from '@/lib/types';
@@ -81,13 +83,13 @@ export async function saveSettingsAction(_: FormState, fd: FormData): Promise<Fo
 
 export async function createPromoAction(_: FormState, fd: FormData): Promise<FormState> {
   const { db } = await admin();
-  const p = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,20}$/, 'Code: 3–20 letters, numbers or dashes'), description: z.string().trim().min(3).max(120), kind: z.enum(['percent', 'fixed']), value: z.string(), min: z.string(), max_uses: z.string().optional(), ends: z.string().optional(), funded_by: z.enum(['platform', 'restaurant']) }).safeParse(Object.fromEntries(fd));
+  const p = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{3,20}$/, 'Code: 3–20 letters, numbers or dashes'), description: z.string().trim().min(3).max(120), kind: z.enum(['percent', 'fixed']), value: z.string(), min: z.string(), max_uses: z.string().optional(), ends: z.string().optional(), funded_by: z.enum(['platform', 'restaurant']), city: z.string().optional() }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { error: p.error.issues[0].message };
   const value = p.data.kind === 'percent' ? Number(p.data.value) : parsePounds(p.data.value);
   const min = parsePounds(p.data.min || '0');
   if (value === null || !Number.isFinite(value) || value <= 0 || (p.data.kind === 'percent' && value > 100) || min === null) return { error: 'Check the discount value' };
   try {
-    await db.insert('promotions', { code: p.data.code, description: p.data.description, kind: p.data.kind, value, min_spend_pence: min, active: true, starts_at: null, ends_at: p.data.ends ? new Date(p.data.ends + 'T23:59:59').toISOString() : null, max_uses: p.data.max_uses ? Math.max(1, Number(p.data.max_uses)) : null, used_count: 0, funded_by: p.data.funded_by, restaurant_id: null });
+    await db.insert('promotions', { code: p.data.code, description: p.data.description, kind: p.data.kind, value, min_spend_pence: min, active: true, starts_at: null, ends_at: p.data.ends ? new Date(p.data.ends + 'T23:59:59').toISOString() : null, max_uses: p.data.max_uses ? Math.max(1, Number(p.data.max_uses)) : null, used_count: 0, funded_by: p.data.funded_by, restaurant_id: null, city_slug: p.data.city || null });
   } catch (e) { if (e instanceof DuplicateError) return { error: 'That code already exists' }; throw e; }
   revalidatePath('/admin/promotions');
   return { ok: 'Promotion created' };
@@ -121,4 +123,27 @@ export async function weeklyPayoutsAction(fd: FormData): Promise<void> {
   if (!r) return;
   try { await setWeeklyPayouts(r); } catch { /* surfaced in Stripe/logs; admins can retry */ }
   revalidatePath('/admin/restaurants');
+}
+
+export async function setCityActiveAction(fd: FormData): Promise<void> {
+  await admin();
+  try { await setCityActive(String(fd.get('slug')), fd.get('active') === 'true'); } catch { /* unknown city */ }
+  revalidatePath('/admin/locations'); revalidatePath('/');
+}
+export async function upsertCityAction(_: FormState, fd: FormData): Promise<FormState> {
+  await admin();
+  try {
+    await upsertCity({ slug: String(fd.get('slug') ?? '').trim().toLowerCase(), name: String(fd.get('name') ?? '').trim().slice(0, 60), areas: String(fd.get('areas') ?? '').split(/[,\s]+/) });
+  } catch (e) { if (e instanceof CityError) return { error: e.message }; throw e; }
+  revalidatePath('/admin/locations');
+  return { ok: 'City saved (new cities start inactive — activate when ready).' };
+}
+
+export async function recoverDisputeAction(_: FormState, fd: FormData): Promise<FormState> {
+  const { s } = await admin();
+  const amount = parsePounds(String(fd.get('amount')));
+  if (amount === null) return { error: 'Enter an amount' };
+  try { await recoverDisputeFromRestaurant(String(fd.get('order')), amount, s.userId); } catch (e) { return { error: (e as Error).message }; }
+  revalidatePath('/admin/finance');
+  return { ok: 'Transfer reversed: funds recovered from the restaurant.' };
 }

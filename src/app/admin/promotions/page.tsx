@@ -3,6 +3,7 @@ import { ActionForm, Submit } from '@/components/ActionForm';
 import { Badge, Card, Field, Input, Notice, Select } from '@/components/ui';
 import { getDb } from '@/lib/db';
 import { fmt } from '@/lib/money';
+import { getCities } from '@/lib/services/cities';
 import type { Promotion } from '@/lib/types';
 import { createPromoAction, togglePromoAction } from '../actions';
 export const metadata: Metadata = { title: 'Promotions — Admin' };
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function Promotions() {
   const promos = await (await getDb()).select<Promotion>('promotions', {}, { order: ['created_at', 'desc'] });
+  const cities = await getCities();
   return (
     <div className="max-w-3xl space-y-5">
       <Card className="p-6"><h2 className="font-display text-2xl font-semibold text-navy">Promotional codes</h2>
@@ -21,6 +23,7 @@ export default async function Promotions() {
           <Field label="Code"><Input name="code" placeholder="WELCOME10" required /></Field><Field label="Description (shown to customers)"><Input name="description" required /></Field>
           <Field label="Type"><Select name="kind"><option value="percent">Percentage</option><option value="fixed">Fixed £</option></Select></Field><Field label="Value" hint="% or £ amount"><Input name="value" inputMode="decimal" required /></Field>
           <Field label="Minimum spend (£)"><Input name="min" inputMode="decimal" defaultValue="0" /></Field><Field label="Max total uses (optional)"><Input name="max_uses" type="number" min={1} /></Field>
+          <Field label="City (optional)"><Select name="city"><option value="">Any city</option>{cities.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}</Select></Field>
           <Field label="Ends (optional)"><Input name="ends" type="date" /></Field><Field label="Funded by"><Select name="funded_by"><option value="platform">FeastQuarter (from commission)</option><option value="restaurant">Restaurant</option></Select></Field>
           <div className="sm:col-span-2"><Submit variant="gold">Create code</Submit></div></ActionForm></Card>
     </div>
