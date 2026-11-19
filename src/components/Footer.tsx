@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Logo } from './Logo';
 
-export function Footer() {
+export function Footer({ plus = false }: { plus?: boolean }) {
   const col = (title: string, links: [string, string][]) => (
     <div>
       <h2 className="text-sm font-semibold text-gold">{title}</h2>
@@ -16,7 +16,7 @@ export function Footer() {
           <p className="mt-3 font-display text-lg text-gold">Your City. Your Food. Your Way.</p>
           <p className="mt-2 text-sm text-white/60">Local restaurants, delivered by the people who cook your food.</p>
         </div>
-        {col('Customers', [['/restaurants', 'Find food'], ['/plus', 'FeastQuarter Plus'], ['/offers', 'Offers'], ['/help', 'Help & support']])}
+        {col('Customers', [['/restaurants', 'Find food'], ...(plus ? ([['/plus', 'FeastQuarter Plus']] as [string, string][]) : []), ['/offers', 'Offers'], ['/help', 'Help & support']])}
         {col('Restaurants', [['/partner', 'Partner with us'], ['/login?next=/dashboard', 'Restaurant sign in']])}
         {col('Legal', [['/legal/terms', 'Terms'], ['/legal/privacy', 'Privacy'], ['/legal/allergens', 'Allergen information']])}
       </div>

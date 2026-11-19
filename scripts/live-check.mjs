@@ -19,7 +19,13 @@ if (url && svc) {
     const tables = ['profiles', 'restaurants', 'menu_items', 'orders', 'memberships', 'platform_settings', 'stripe_events', 'transactions'];
     for (const t of tables) { const { error } = await db.from(t).select('*', { head: true, count: 'exact' }).limit(1); error ? bad(`table ${t}`, error.message) : ok(`table ${t}`); }
     const { data } = await db.from('platform_settings').select('*').eq('id', 'main').maybeSingle();
-    data ? ok('platform settings row', `delivery ${data.commission_delivery_bps / 100}% / collection ${data.commission_collection_bps / 100}% / Plus £${(data.membership_price_pence / 100).toFixed(2)}`) : bad('platform settings row', 'missing — did the setup SQL run?');
+    if (!data) bad('platform settings row', 'missing — did the setup SQL run?');
+    else {
+      ok('platform settings row', `commission ${(data.commission_bps ?? 'MISSING') === 'MISSING' ? 'MISSING' : data.commission_bps / 100 + '%'} flat (delivery + collection) / Plus £${(data.membership_price_pence / 100).toFixed(2)}`);
+      data.commission_bps === undefined ? bad('migration 0004 applied', 'commission_bps column missing — run supabase/migrations/0004_launch_model.sql') : ok('migration 0004 applied');
+      data.feature_plus_enabled === false ? ok('FeastQuarter Plus feature flag is OFF (launch default)') : bad('FeastQuarter Plus feature flag is OFF', 'it is ON — only enable after the owner authorises membership');
+      data.platform_vat_registered === false ? ok('platform_vat_registered = false') : bad('platform_vat_registered = false', String(data.platform_vat_registered));
+    }
     const b = await db.storage.getBucket(env('SUPABASE_STORAGE_BUCKET') || 'menu-images'); b.error ? bad('storage bucket', b.error.message) : ok('storage bucket');
     const { count } = await db.from('profiles').select('*', { head: true, count: 'exact' }).eq('role', 'admin');
     (count ?? 0) > 0 ? ok('admin account exists') : bad('admin account exists', "register on the site, then: update profiles set role='admin' where email='YOU';");

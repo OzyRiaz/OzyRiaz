@@ -62,6 +62,15 @@ export interface Restaurant {
   delivery_enabled: boolean;
   collection_enabled: boolean;
   member_offer: MemberOffer;
+  accepting_orders: boolean; // Online / Offline switch controlled by the restaurant
+  legal_name: string | null;
+  company_number: string | null;
+  vat_registered: boolean; // the RESTAURANT's own VAT status (separate from FeastQuarter's)
+  vat_number: string | null;
+  food_business_reg: string | null; // local-authority food business registration reference
+  food_hygiene_rating: number | null; // 0-5
+  food_hygiene_authority: string | null;
+  referred_by: string | null; // referral attribution
   stripe_account_id: string | null;
   stripe_details_submitted: boolean;
   stripe_charges_enabled: boolean;
@@ -136,9 +145,12 @@ export interface Order {
   discount_funded_by_restaurant_pence: number;
   discount_funded_by_platform_pence: number;
   promo_code: string | null;
+  tip_pence: number; // tips are never commissionable
   total_pence: number;
   commission_bps: number;
   commission_pence: number; // gross commission before platform-funded discount
+  commission_vat_pence: number; // 0 while FeastQuarter is not VAT registered
+  stripe_fee_pence: number | null; // ACTUAL Stripe processing fee from Stripe's balance transaction (null until reconciled)
   application_fee_pence: number; // what FeastQuarter actually collects via Stripe
   restaurant_net_pence: number;
   delivery_address: { line1: string; line2?: string | null; city: string; postcode: string } | null;
@@ -183,8 +195,16 @@ export interface Promotion {
 
 export interface PlatformSettings {
   id: string; // always 'main'
-  commission_delivery_bps: number;
-  commission_collection_bps: number;
+  /** Flat commission on the FOOD subtotal for delivery AND collection, in basis points (1000 = 10%). Includes standard card processing. */
+  commission_bps: number;
+  /** FeastQuarter's own VAT status. Restaurants' VAT status is separate (restaurants.vat_registered). */
+  platform_vat_registered: boolean;
+  vat_threshold_pence: number; // rolling 12-month registration threshold used for monitoring — verify against current HMRC figure
+  vat_rate_bps: number; // 2000 = 20%
+  /** If registered: none | inclusive (commission already includes VAT) | exclusive (VAT added on top of commission). */
+  commission_vat_mode: 'none' | 'inclusive' | 'exclusive';
+  /** Feature flag. FeastQuarter Plus is OFF at launch until the owner authorises it. */
+  feature_plus_enabled: boolean;
   membership_price_pence: number;
   membership_benefits: string[];
   member_discount_funding: 'restaurant' | 'platform';
@@ -193,7 +213,7 @@ export interface PlatformSettings {
 
 export interface StripeEvent { id: string; type: string; received_at: string }
 
-export type TxKind = 'order_payment' | 'application_fee' | 'refund' | 'membership_payment' | 'payment_failed' | 'dispute';
+export type TxKind = 'order_payment' | 'application_fee' | 'stripe_fee' | 'refund' | 'membership_payment' | 'payment_failed' | 'dispute';
 export interface Transaction {
   id: string;
   kind: TxKind;

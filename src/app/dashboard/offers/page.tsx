@@ -15,6 +15,7 @@ export default async function Offers() {
   return (
     <Card className="max-w-2xl p-6">
       <h2 className="font-display text-2xl font-semibold text-navy">FeastQuarter Plus member offer</h2>
+      {!settings.feature_plus_enabled && <div className="mt-3"><Notice tone="gold">FeastQuarter Plus is not live yet, so member offers are saved but not shown or applied to customers.</Notice></div>}
       <p className="mt-1 text-sm text-muted">Give FeastQuarter Plus members a percentage off food. {settings.member_discount_funding === 'restaurant' ? 'The discount is funded by you: it reduces what you receive and the commission base.' : 'The discount is funded by FeastQuarter from its commission, up to the commission on that order.'}</p>
       <div className="mt-3"><Notice tone="navy">Platform cap: member discounts are limited to <strong>{settings.member_discount_max_percent}%</strong>. Offers are never shown as “was/now” prices.</Notice></div>
       <ActionForm action={saveOfferAction} className="mt-4 space-y-4">

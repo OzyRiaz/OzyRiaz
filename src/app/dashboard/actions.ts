@@ -76,7 +76,7 @@ export async function addCategoryAction(_: FormState, fd: FormData): Promise<For
 
 export async function saveProfileAction(_: FormState, fd: FormData): Promise<FormState> {
   const { rid, db } = await ctx();
-  const p = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().min(10, 'Add a short description').max(400), cuisines: z.string().trim().min(2), address_line1: z.string().trim().min(3), postcode: z.string(), phone: z.string().trim().min(7).max(20), email: z.string().trim().email(), image_url: z.string().max(3_000_000).optional(), prep_minutes: z.coerce.number().int().min(5).max(120), min_order: money }).safeParse(Object.fromEntries(fd));
+  const p = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().min(10, 'Add a short description').max(400), cuisines: z.string().trim().min(2), address_line1: z.string().trim().min(3), postcode: z.string(), phone: z.string().trim().min(7).max(20), email: z.string().trim().email(), image_url: z.string().max(3_000_000).optional(), legal_name: z.string().trim().max(120).optional(), company_number: z.string().trim().max(20).optional(), vat_registered: z.enum(['yes', 'no']).optional(), vat_number: z.string().trim().max(20).optional(), food_business_reg: z.string().trim().max(60).optional(), food_hygiene_rating: z.string().regex(/^[0-5]?$/).optional(), food_hygiene_authority: z.string().trim().max(80).optional(), prep_minutes: z.coerce.number().int().min(5).max(120), min_order: money }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { error: p.error.issues[0].message };
   const pc = parsePostcode(p.data.postcode);
   if (!pc) return { error: 'Enter a valid UK postcode' };
@@ -87,7 +87,7 @@ export async function saveProfileAction(_: FormState, fd: FormData): Promise<For
     if (!/^\d\d:\d\d$/.test(open) || !/^\d\d:\d\d$/.test(close)) return { error: `Check opening times for ${d}` };
     hours[d] = [{ open, close }];
   }
-  await db.update('restaurants', { id: rid }, { name: p.data.name, description: p.data.description, cuisines: p.data.cuisines.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 4), address_line1: p.data.address_line1, postcode: pc.normalised, phone: p.data.phone, email: p.data.email, image_url: p.data.image_url || null, prep_minutes: p.data.prep_minutes, min_order_pence: p.data.min_order, opening_hours: hours });
+  await db.update('restaurants', { id: rid }, { name: p.data.name, description: p.data.description, cuisines: p.data.cuisines.split(',').map((c) => c.trim()).filter(Boolean).slice(0, 4), address_line1: p.data.address_line1, postcode: pc.normalised, phone: p.data.phone, email: p.data.email, image_url: p.data.image_url || null, legal_name: p.data.legal_name || null, company_number: p.data.company_number || null, vat_registered: p.data.vat_registered === 'yes', vat_number: p.data.vat_number || null, food_business_reg: p.data.food_business_reg || null, food_hygiene_rating: p.data.food_hygiene_rating ? Number(p.data.food_hygiene_rating) : null, food_hygiene_authority: p.data.food_hygiene_authority || null, prep_minutes: p.data.prep_minutes, min_order_pence: p.data.min_order, opening_hours: hours });
   revalidatePath('/dashboard/profile');
   return { ok: 'Profile saved' };
 }

@@ -1,7 +1,9 @@
 import { getDb } from '../db';
+import { isDemo } from '../config';
 import { areaMatches, parsePostcode, parseOutwardOnly, postcodeInServedCity } from '../postcode';
 import type { DeliveryArea, MenuCategory, MenuItem, Restaurant } from '../types';
 import { isOpenNow } from '../hours';
+import { getSettings } from './settings';
 
 export type Availability = 'delivers' | 'collection_only' | 'unavailable' | 'unknown';
 
@@ -32,7 +34,8 @@ export function availabilityFor(r: Restaurant, areas: DeliveryArea[], postcode: 
 
 export async function listRestaurants(opts: { postcode?: string | null; cuisine?: string | null; q?: string | null; featuredOnly?: boolean } = {}): Promise<RestaurantCard[]> {
   const db = await getDb();
-  const [all, areas] = await Promise.all([db.select<Restaurant>('restaurants', { status: 'approved' }), db.select<DeliveryArea>('delivery_areas')]);
+  const [all0, areas, settings] = await Promise.all([db.select<Restaurant>('restaurants', { status: 'approved' }), db.select<DeliveryArea>('delivery_areas'), getSettings()]);
+  const all = isDemo ? all0 : all0.filter((r) => !r.is_demo); // demonstration restaurants never appear in live mode
   const pc = opts.postcode?.trim() || null;
   const outward = pc ? parsePostcode(pc)?.outward ?? parseOutwardOnly(pc) : null;
   const served = outward ? !!postcodeInServedCity({ outward }) : true;
@@ -44,7 +47,7 @@ export async function listRestaurants(opts: { postcode?: string | null; cuisine?
     if (q && !`${r.name} ${r.cuisines.join(' ')} ${r.description}`.toLowerCase().includes(q)) continue;
     const { availability, area } = availabilityFor(r, areas.filter((a) => a.restaurant_id === r.id), outward ? (pc as string) : null);
     if (outward && (!served || availability === 'unavailable')) continue; // only show restaurants that can serve this postcode
-    out.push({ ...r, availability, delivery_fee_pence: area?.fee_pence ?? null, open_now: isOpenNow(r.opening_hours), has_member_offer: r.member_offer.enabled });
+    out.push({ ...r, availability, delivery_fee_pence: area?.fee_pence ?? null, open_now: isOpenNow(r.opening_hours), has_member_offer: settings.feature_plus_enabled && r.member_offer.enabled });
   }
   return out.sort((a, b) => Number(b.featured) - Number(a.featured) || Number(b.open_now) - Number(a.open_now) || a.name.localeCompare(b.name));
 }

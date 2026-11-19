@@ -11,6 +11,7 @@ import { __setStripeForTests } from '@/lib/stripe';
 import { customer, freshDb, karahi, member, owner, owner2, sessionFor } from './helpers';
 import type { Notification, Order, Transaction } from '@/lib/types';
 
+const enablePlus = async () => (await getDb()).update('platform_settings', { id: 'main' }, { feature_plus_enabled: true });
 const ev = (id: string, type: string, object: unknown) => ({ id, type, data: { object } }) as unknown as Stripe.Event;
 
 async function placeOrder(opts: { who?: 'customer' | 'member'; key?: string; fulfilment?: 'delivery' | 'collection'; promo?: string; qty?: number } = {}) {
@@ -33,7 +34,9 @@ describe('ordering', () => {
     expect(order.payment_status).toBe('unpaid');
     expect(order.subtotal_pence).toBe(6 * 320);
     expect(order.delivery_fee_pence).toBe(250);
-    expect(order.commission_pence).toBe(Math.round(1920 * 0.08));
+    expect(order.commission_bps).toBe(1000);
+    expect(order.commission_pence).toBe(192); // flat 10% of £19.20 food; delivery fee excluded
+    expect(order.restaurant_net_pence).toBe(order.total_pence - 192);
     expect(order.paid_at).toBeNull();
   });
 
@@ -62,6 +65,7 @@ describe('ordering', () => {
   });
 
   it('applies the member offer only to active members, and never for non-members', async () => {
+    await enablePlus();
     const { r, byName } = await karahi();
     const line = [{ itemId: byName('Lamb karahi').id, qty: 2, optionChoiceIds: ['spice-1'] }];
     const non = await buildQuote({ restaurantId: r.id, lines: line, fulfilment: 'collection', userId: (await customer()).userId });
@@ -139,6 +143,7 @@ describe('payment is confirmed only by verified webhooks', () => {
 describe('Stripe Connect session', () => {
   it('creates a destination charge to the restaurant with FeastQuarter application fee and idempotency', async () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    await enablePlus();
     const create = vi.fn().mockResolvedValue({ id: 'cs_test', url: 'https://checkout.stripe.test/x' });
     __setStripeForTests({ checkout: { sessions: { create } }, coupons: { create: vi.fn().mockResolvedValue({ id: 'co_1' }) } });
     const { order, r } = await placeOrder({ who: 'member', fulfilment: 'delivery', qty: 8 });
@@ -305,5 +310,69 @@ describe('demo sessions', () => {
     const a = (await customer()).userId;
     await freshDb();
     expect((await customer()).userId).toBe(a);
+  });
+});
+
+
+describe('launch model: Plus flag, tips, offline, processing fee liability', () => {
+  it('FeastQuarter Plus is OFF by default: a real member gets NO discount and the basket shows no Plus upsell', async () => {
+    const { r, byName } = await karahi();
+    const q = await buildQuote({ restaurantId: r.id, lines: [{ itemId: byName('Lamb karahi').id, qty: 2, optionChoiceIds: ['spice-1'] }], fulfilment: 'collection', userId: (await member()).userId });
+    expect(q.discount_pence).toBe(0);
+    expect(q.memberHint).toBeUndefined();
+  });
+  it('membership checkout is refused while the flag is off, and existing membership records are untouched', async () => {
+    const { startMembershipCheckout } = await import('@/lib/services/membership');
+    const db = await getDb();
+    const m = await member();
+    const before = await db.get<any>('memberships', { user_id: m.userId });
+    const profile = (await db.get<any>('profiles', { id: m.userId }))!;
+    await expect(startMembershipCheckout(profile)).rejects.toThrow(/not available yet|already have/);
+    const c = await customer();
+    await expect(startMembershipCheckout((await db.get<any>('profiles', { id: c.userId }))!)).rejects.toThrow(/not available yet/);
+    expect(await db.get<any>('memberships', { user_id: m.userId })).toEqual(before);
+    expect(await getActiveMembership(m.userId)).not.toBeNull(); // existing member is not cancelled
+  });
+  it('tip flows to the order and to Stripe as its own line, and never changes the commission', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    const create = vi.fn().mockResolvedValue({ id: 'cs_t', url: 'https://checkout.stripe.test/t' });
+    __setStripeForTests({ checkout: { sessions: { create } }, coupons: { create: vi.fn() } });
+    const { r, byName } = await karahi();
+    const mk = (tip: number, key: string) => createOrder({ user: customerSession, restaurantId: r.id, fulfilment: 'delivery', idempotencyKey: key, tipPence: tip, address: { line1: '1 Test St', city: 'Bradford', postcode: 'BD5 0AA' }, lines: [{ itemId: byName('Garlic naan').id, qty: 6, optionChoiceIds: [] }] });
+    const customerSession = await customer();
+    const a = await mk(0, 'tip-a'), b = await mk(300, 'tip-b');
+    expect(b.tip_pence).toBe(300);
+    expect(b.total_pence).toBe(a.total_pence + 300);
+    expect(b.commission_pence).toBe(a.commission_pence);
+    expect(b.application_fee_pence).toBe(a.application_fee_pence);
+    await createPaymentSession(b, 'c@example.com');
+    const params = create.mock.calls[0][0];
+    const total = params.line_items.reduce((s: number, l: any) => s + l.quantity * l.price_data.unit_amount, 0);
+    expect(total).toBe(b.total_pence);
+    expect(params.line_items.some((l: any) => /Tip/.test(l.price_data.product_data.name))).toBe(true);
+    expect(params.payment_intent_data.application_fee_amount).toBe(b.application_fee_pence);
+  });
+  it('rejects absurd or non-integer tips server-side', async () => {
+    const { r, byName } = await karahi();
+    const line = [{ itemId: byName('Garlic naan').id, qty: 6, optionChoiceIds: [] }];
+    for (const tipPence of [-1, 10001, 1.5]) await expect(buildQuote({ restaurantId: r.id, lines: line, fulfilment: 'collection', tipPence })).rejects.toThrow(/Tip/);
+  });
+  it('Stripe payment intent: platform is NOT settlement merchant-switched by default (no on_behalf_of); opt-in via env', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    const create = vi.fn().mockResolvedValue({ id: 'cs_x', url: 'https://checkout.stripe.test/x' });
+    __setStripeForTests({ checkout: { sessions: { create } }, coupons: { create: vi.fn() } });
+    const { order } = await placeOrder();
+    await createPaymentSession(order, 'c@example.com');
+    expect(create.mock.calls[0][0].payment_intent_data.on_behalf_of).toBeUndefined();
+    process.env.STRIPE_USE_ON_BEHALF_OF = 'true';
+    await createPaymentSession({ ...order, stripe_session_id: null }, 'c@example.com');
+    expect(create.mock.calls[1][0].payment_intent_data.on_behalf_of).toBeTruthy();
+    delete process.env.STRIPE_USE_ON_BEHALF_OF;
+  });
+  it('an OFFLINE restaurant cannot receive new orders', async () => {
+    const { r, byName } = await karahi();
+    await (await getDb()).update('restaurants', { id: r.id }, { accepting_orders: false });
+    await expect(buildQuote({ restaurantId: r.id, lines: [{ itemId: byName('Garlic naan').id, qty: 6, optionChoiceIds: [] }], fulfilment: 'collection' })).rejects.toThrow(/offline/);
+    expect((await listRestaurants({ postcode: 'BD5 0AA' })).find((x) => x.id === r.id)).toBeDefined(); // still listed, but cannot be ordered from
   });
 });

@@ -3,6 +3,7 @@ import { chooseDiscount, computeTotals, memberDiscount, priceLine, promoDiscount
 import { parsePostcode, postcodeInServedCity } from '../postcode';
 import { isOpenNow } from '../hours';
 import type { DeliveryArea, Fulfilment, MenuItem, OrderLine, Promotion, Restaurant } from '../types';
+import { isDemo } from '../config';
 import { availabilityFor } from './restaurants';
 import { getSettings } from './settings';
 import { getActiveMembership } from './membership';
@@ -13,6 +14,7 @@ export interface QuoteInput {
   fulfilment: Fulfilment;
   postcode?: string | null; // required for delivery
   promoCode?: string | null;
+  tipPence?: number | null; // customer tip: never commissionable
   userId?: string | null;
 }
 export interface Quote extends Totals {
@@ -31,6 +33,8 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
   const db = await getDb();
   const restaurant = await db.get<Restaurant>('restaurants', { id: input.restaurantId });
   if (!restaurant || restaurant.status !== 'approved') throw new QuoteError('This restaurant is not currently taking orders');
+  if (restaurant.is_demo && !isDemo) throw new QuoteError('This is a demonstration restaurant and cannot take real orders');
+  if (restaurant.accepting_orders === false) throw new QuoteError(`${restaurant.name} is offline and not taking new orders right now`);
   if (!input.lines.length) throw new QuoteError('Your basket is empty');
   const items = await db.select<MenuItem>('menu_items', { restaurant_id: restaurant.id });
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -77,7 +81,9 @@ export async function buildQuote(input: QuoteInput): Promise<Quote> {
       if ('error' in r) promoError = r.error; else cands.push(r);
     }
   }
-  const totals = computeTotals({ subtotal, deliveryFee, fulfilment: input.fulfilment, settings, discount: chooseDiscount(cands) });
+  const tip = input.tipPence ?? 0;
+  if (!Number.isInteger(tip) || tip < 0 || tip > 10000) throw new QuoteError('Tip must be between £0 and £100');
+  const totals = computeTotals({ subtotal, deliveryFee, fulfilment: input.fulfilment, settings, discount: chooseDiscount(cands), tip });
   return { ...totals, restaurant, lines, isMember: !!membership, promoError, memberHint, open: isOpenNow(restaurant.opening_hours) };
 }
 

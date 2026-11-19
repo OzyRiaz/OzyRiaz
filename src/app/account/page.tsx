@@ -6,6 +6,7 @@ import { requireSession } from '@/lib/auth/session';
 import { addAddressAction, deleteAccountAction, deleteAddressAction, updateProfileAction } from '@/app/actions/customer';
 import { getDb } from '@/lib/db';
 import { launchCity } from '@/lib/cities';
+import { getSettings } from '@/lib/services/settings';
 import { getActiveMembership } from '@/lib/services/membership';
 import type { Address, Profile } from '@/lib/types';
 export const metadata: Metadata = { title: 'Account' };
@@ -13,15 +14,16 @@ export const metadata: Metadata = { title: 'Account' };
 export default async function Account() {
   const s = await requireSession('/account');
   const db = await getDb();
+  const plusOn = (await getSettings()).feature_plus_enabled;
   const [p, addrs, m] = await Promise.all([db.get<Profile>('profiles', { id: s.userId }), db.select<Address>('addresses', { user_id: s.userId }), getActiveMembership(s.userId)]);
   return (
     <Container className="max-w-3xl py-8">
       <PageTitle title="Your account" sub={s.email} />
       <div className="space-y-5">
-        <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+        {(plusOn || m) && <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div><h2 className="font-display text-xl font-semibold text-navy">FeastQuarter Plus</h2><p className="text-sm text-muted">{m ? `Active${m.cancel_at_period_end ? ' — ends ' + new Date(m.current_period_end!).toLocaleDateString('en-GB') : m.current_period_end ? ' — renews ' + new Date(m.current_period_end).toLocaleDateString('en-GB') : ''}` : 'Not a member'}</p></div>
           <div className="flex items-center gap-2">{m && <Badge tone="gold">Member</Badge>}<Link href="/plus" className="text-sm font-semibold text-navy underline">Manage</Link></div>
-        </Card>
+        </Card>}
         <Card className="p-5">
           <h2 className="font-display text-xl font-semibold text-navy">Profile</h2>
           <ActionForm action={updateProfileAction} className="mt-3 grid gap-3 sm:grid-cols-2">

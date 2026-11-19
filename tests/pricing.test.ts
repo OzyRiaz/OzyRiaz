@@ -1,52 +1,96 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/lib/demo-data';
+import { estimateProcessingFee } from '@/lib/money';
 import { chooseDiscount, computeTotals, memberDiscount, priceLine, promoDiscount, PricingError } from '@/lib/pricing';
 import type { MenuItem, PlatformSettings, Promotion } from '@/lib/types';
 
 const S = DEFAULT_SETTINGS as unknown as PlatformSettings;
+const SP = { ...S, feature_plus_enabled: true };
 
-describe('commission', () => {
-  it('charges 8% on delivery food orders and keeps delivery fee out of the commission base', () => {
-    const t = computeTotals({ subtotal: 2000, deliveryFee: 250, fulfilment: 'delivery', settings: S, discount: null });
-    expect(t.commission_bps).toBe(800);
-    expect(t.commission_pence).toBe(160);
-    expect(t.total_pence).toBe(2250);
-    expect(t.application_fee_pence).toBe(160);
-    expect(t.restaurant_net_pence).toBe(2090); // food 1840 + delivery 250
+describe('commission — flat 10% on food, delivery and collection', () => {
+  it('uses integer basis points: commission_bps = 1000 by default', () => expect(S.commission_bps).toBe(1000));
+
+  it('SPEC delivery example: £25 food + £3 delivery → customer £28, commission £2.50, restaurant £25.50', () => {
+    const t = computeTotals({ subtotal: 2500, deliveryFee: 300, fulfilment: 'delivery', settings: S, discount: null });
+    expect(t.total_pence).toBe(2800);
+    expect(t.commission_bps).toBe(1000);
+    expect(t.commission_pence).toBe(250);
+    expect(t.application_fee_pence).toBe(250);
+    expect(t.restaurant_net_pence).toBe(2550);
+    const processing = estimateProcessingFee(t.total_pence);
+    expect(processing).toBe(62); // 1.5% × £28.00 + 20p
+    expect(t.application_fee_pence - processing).toBe(188); // FeastQuarter contribution £1.88, before Connect costs/refunds/tax
   });
-  it('charges 5% on collection and ignores any delivery fee', () => {
-    const t = computeTotals({ subtotal: 2000, deliveryFee: 250, fulfilment: 'collection', settings: S, discount: null });
-    expect(t.commission_bps).toBe(500);
+
+  it('SPEC collection example: £25 food, no delivery → customer £25, commission £2.50, restaurant £22.50', () => {
+    const t = computeTotals({ subtotal: 2500, deliveryFee: 300 /* ignored for collection */, fulfilment: 'collection', settings: S, discount: null });
     expect(t.delivery_fee_pence).toBe(0);
-    expect(t.total_pence).toBe(2000);
-    expect(t.application_fee_pence).toBe(100);
+    expect(t.total_pence).toBe(2500);
+    expect(t.commission_pence).toBe(250);
+    expect(t.restaurant_net_pence).toBe(2250);
+    const processing = estimateProcessingFee(t.total_pence);
+    expect(processing).toBe(58); // ≈ £0.58
+    expect(t.application_fee_pence - processing).toBe(192); // ≈ £1.92
   });
-  it('uses admin-changed commission rates', () => {
-    const t = computeTotals({ subtotal: 1000, deliveryFee: 0, fulfilment: 'delivery', settings: { ...S, commission_delivery_bps: 1000 }, discount: null });
-    expect(t.commission_pence).toBe(100);
+
+  it('delivery and collection pay the SAME rate on the same food', () => {
+    const d = computeTotals({ subtotal: 3333, deliveryFee: 250, fulfilment: 'delivery', settings: S, discount: null });
+    const c = computeTotals({ subtotal: 3333, deliveryFee: 250, fulfilment: 'collection', settings: S, discount: null });
+    expect(d.commission_pence).toBe(c.commission_pence);
+  });
+
+  it('delivery fee is never commissionable (huge delivery fee changes nothing)', () => {
+    const a = computeTotals({ subtotal: 2000, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: null });
+    const b = computeTotals({ subtotal: 2000, deliveryFee: 9900, fulfilment: 'delivery', settings: S, discount: null });
+    expect(b.commission_pence).toBe(a.commission_pence);
+    expect(b.restaurant_net_pence - a.restaurant_net_pence).toBe(9900);
+  });
+
+  it('tips are never commissionable and go entirely to the restaurant', () => {
+    const base = computeTotals({ subtotal: 2500, deliveryFee: 300, fulfilment: 'delivery', settings: S, discount: null });
+    const tipped = computeTotals({ subtotal: 2500, deliveryFee: 300, fulfilment: 'delivery', settings: S, discount: null, tip: 500 });
+    expect(tipped.tip_pence).toBe(500);
+    expect(tipped.total_pence).toBe(base.total_pence + 500);
+    expect(tipped.commission_pence).toBe(base.commission_pence);
+    expect(tipped.application_fee_pence).toBe(base.application_fee_pence);
+    expect(tipped.restaurant_net_pence).toBe(base.restaurant_net_pence + 500);
+  });
+
+  it('there is no separate card-processing fee, customer surcharge or service fee in the totals', () => {
+    const t = computeTotals({ subtotal: 2500, deliveryFee: 300, fulfilment: 'delivery', settings: S, discount: null });
+    expect(t.total_pence).toBe(t.subtotal_pence + t.delivery_fee_pence); // nothing else added to what the customer pays
+    expect(t.restaurant_net_pence + t.application_fee_pence).toBe(t.total_pence); // the restaurant is not charged anything extra
+  });
+
+  it('uses an admin-changed rate for NEW calculations only (rate is stored per order)', () => {
+    const t = computeTotals({ subtotal: 1000, deliveryFee: 0, fulfilment: 'delivery', settings: { ...S, commission_bps: 1200 }, discount: null });
+    expect(t.commission_pence).toBe(120);
+    expect(t.commission_bps).toBe(1200);
   });
   it('rounds to whole pence', () => {
-    const t = computeTotals({ subtotal: 1234, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: null });
-    expect(t.commission_pence).toBe(99); // 98.72
+    expect(computeTotals({ subtotal: 1234, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: null }).commission_pence).toBe(123); // 123.4
+    expect(computeTotals({ subtotal: 1235, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: null }).commission_pence).toBe(124); // 123.5 → half up
   });
-  it('restaurant-funded discount lowers the commission base and the restaurant bears it', () => {
+
+  it('restaurant-funded discount: commission is on the food actually charged; restaurant bears the discount', () => {
     const t = computeTotals({ subtotal: 2000, deliveryFee: 0, fulfilment: 'collection', settings: S, discount: { label: 'x', amountPence: 400, fundedBy: 'restaurant' } });
     expect(t.total_pence).toBe(1600);
-    expect(t.commission_pence).toBe(80);
-    expect(t.application_fee_pence).toBe(80);
-    expect(t.restaurant_net_pence).toBe(1520);
-  });
-  it('platform-funded discount is paid from FeastQuarter commission and is capped by it', () => {
-    const t = computeTotals({ subtotal: 2000, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: { label: 'x', amountPence: 1000, fundedBy: 'platform', promoCode: 'X' } });
     expect(t.commission_pence).toBe(160);
-    expect(t.discount_pence).toBe(160); // capped
-    expect(t.application_fee_pence).toBe(0);
-    expect(t.total_pence).toBe(1840);
-    expect(t.restaurant_net_pence).toBe(1840); // restaurant still gets food minus full commission
+    expect(t.restaurant_net_pence).toBe(1440);
+    expect(t.discount_funded_by_restaurant_pence).toBe(400);
   });
-  it('invariant: customer pays total = restaurant net + application fee, never negative', () => {
-    for (const sub of [100, 999, 1500, 5555]) for (const f of ['delivery', 'collection'] as const) for (const funded of ['restaurant', 'platform'] as const) for (const d of [0, 50, 300, 99999]) {
-      const t = computeTotals({ subtotal: sub, deliveryFee: 199, fulfilment: f, settings: S, discount: d ? { label: 'd', amountPence: d, fundedBy: funded } : null });
+  it('platform-funded discount comes out of FeastQuarter commission, is capped at it, and is tracked separately', () => {
+    const t = computeTotals({ subtotal: 2000, deliveryFee: 0, fulfilment: 'delivery', settings: S, discount: { label: 'x', amountPence: 1000, fundedBy: 'platform', promoCode: 'X' } });
+    expect(t.commission_pence).toBe(200);
+    expect(t.discount_pence).toBe(200);
+    expect(t.discount_funded_by_platform_pence).toBe(200);
+    expect(t.application_fee_pence).toBe(0);
+    expect(t.total_pence).toBe(1800);
+    expect(t.restaurant_net_pence).toBe(1800); // restaurant is made whole: food − full commission
+  });
+  it('invariant: total = restaurant allocation + application fee; fee never negative (all combinations)', () => {
+    for (const sub of [100, 999, 1500, 2500, 5555]) for (const f of ['delivery', 'collection'] as const) for (const funded of ['restaurant', 'platform'] as const) for (const d of [0, 50, 300, 99999]) for (const tip of [0, 150]) {
+      const t = computeTotals({ subtotal: sub, deliveryFee: 199, fulfilment: f, settings: S, discount: d ? { label: 'd', amountPence: d, fundedBy: funded } : null, tip });
       expect(t.total_pence).toBe(t.restaurant_net_pence + t.application_fee_pence);
       expect(t.application_fee_pence).toBeGreaterThanOrEqual(0);
       expect(t.total_pence).toBeGreaterThanOrEqual(0);
@@ -54,17 +98,44 @@ describe('commission', () => {
   });
 });
 
+describe('VAT on FeastQuarter commission (configuration only; not a statement of legal treatment)', () => {
+  it('adds NO VAT while FeastQuarter is unregistered, whatever mode is set', () => {
+    for (const mode of ['none', 'inclusive', 'exclusive'] as const) {
+      const t = computeTotals({ subtotal: 2500, deliveryFee: 300, fulfilment: 'delivery', settings: { ...S, platform_vat_registered: false, commission_vat_mode: mode }, discount: null });
+      expect(t.commission_vat_pence).toBe(0);
+      expect(t.application_fee_pence).toBe(250);
+    }
+    expect(S.platform_vat_registered).toBe(false);
+  });
+  it('inclusive: VAT is extracted from the fee, fee and restaurant allocation unchanged', () => {
+    const t = computeTotals({ subtotal: 2500, deliveryFee: 0, fulfilment: 'collection', settings: { ...S, platform_vat_registered: true, commission_vat_mode: 'inclusive' }, discount: null });
+    expect(t.application_fee_pence).toBe(250);
+    expect(t.commission_vat_pence).toBe(42); // 250 × 20/120
+    expect(t.restaurant_net_pence).toBe(2250);
+  });
+  it('exclusive: VAT is added on top of the fee', () => {
+    const t = computeTotals({ subtotal: 2500, deliveryFee: 0, fulfilment: 'collection', settings: { ...S, platform_vat_registered: true, commission_vat_mode: 'exclusive' }, discount: null });
+    expect(t.commission_vat_pence).toBe(50);
+    expect(t.application_fee_pence).toBe(300);
+    expect(t.restaurant_net_pence).toBe(2200);
+  });
+});
+
 describe('discounts', () => {
   const offer = { enabled: true, percent: 25, min_spend_pence: 1500, description: '' };
   it('caps member percent at the admin maximum', () => {
-    expect(memberDiscount(2000, offer, S)!.amountPence).toBe(400); // 20% cap, not 25%
+    expect(memberDiscount(2000, offer, SP)!.amountPence).toBe(400); // 20% cap, not 25%
   });
   it('requires minimum spend and enabled offer', () => {
-    expect(memberDiscount(1000, offer, S)).toBeNull();
-    expect(memberDiscount(2000, { ...offer, enabled: false }, S)).toBeNull();
+    expect(memberDiscount(1000, offer, SP)).toBeNull();
+    expect(memberDiscount(2000, { ...offer, enabled: false }, SP)).toBeNull();
   });
   it('member discount funding follows the admin setting', () => {
-    expect(memberDiscount(2000, offer, { ...S, member_discount_funding: 'platform' })!.fundedBy).toBe('platform');
+    expect(memberDiscount(2000, offer, { ...SP, member_discount_funding: 'platform' })!.fundedBy).toBe('platform');
+  });
+  it('FeastQuarter Plus is OFF at launch: no member discount is ever applied while the flag is off', () => {
+    expect(S.feature_plus_enabled).toBe(false);
+    expect(memberDiscount(2000, offer, S)).toBeNull();
   });
   it('never stacks discounts: picks the largest', () => {
     expect(chooseDiscount([{ label: 'a', amountPence: 100, fundedBy: 'restaurant' }, { label: 'b', amountPence: 300, fundedBy: 'platform' }])!.label).toBe('b');

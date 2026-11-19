@@ -23,8 +23,12 @@ export const DEMO_ACCOUNTS = {
 
 export const DEFAULT_SETTINGS = {
   id: 'main',
-  commission_delivery_bps: 800,
-  commission_collection_bps: 500,
+  commission_bps: 1000, // flat 10% on food for delivery AND collection; includes standard card processing
+  platform_vat_registered: false,
+  vat_threshold_pence: 9000000, // £90,000 — verify against current HMRC guidance
+  vat_rate_bps: 2000,
+  commission_vat_mode: 'none',
+  feature_plus_enabled: false, // FeastQuarter Plus is OFF at launch
   membership_price_pence: 499,
   membership_benefits: [
     'Access to member-only discounts at participating restaurants',
@@ -198,6 +202,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
       id: stableId('restaurant:' + r.slug), owner_id: owner.id, slug: r.slug, name: r.name, description: r.desc, cuisines: r.cuisines, address_line1: r.line1, postcode: r.postcode,
       city_slug: 'bradford', phone: '01274 000000', email: email, image_url: null, status: r.status ?? 'approved', is_demo: true, featured: !!r.featured,
       opening_hours: Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map((d) => [d, [{ open: '09:00', close: '23:59' }]])) as unknown as Restaurant['opening_hours'], min_order_pence: r.min, prep_minutes: r.prep, delivery_enabled: r.delivery ?? true, collection_enabled: r.collection ?? true,
+      accepting_orders: true, legal_name: null, company_number: null, vat_registered: false, vat_number: null, food_business_reg: null, food_hygiene_rating: null, food_hygiene_authority: null, referred_by: null,
       member_offer: { enabled: !!r.memberPct, percent: r.memberPct ?? 0, min_spend_pence: 1500, description: 'Member-only saving on food' },
       stripe_account_id: approved ? `acct_demo_${r.slug}` : null, stripe_details_submitted: approved, stripe_charges_enabled: approved, stripe_payouts_enabled: approved,
     }));
@@ -232,7 +237,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
       const when = new Date(Date.now() - (n * 7 + 2) * 36e5).toISOString();
       await db.insert('orders', {
         reference: `FQ-DEMO${String(n).padStart(3, '0')}`, customer_id: customer.id, restaurant_id: r.id, idempotency_key: `seed-${n}`, fulfilment,
-        status: 'completed', payment_status: 'paid', lines: [line], ...t, delivery_address: fulfilment === 'delivery' ? { line1: '10 Example Terrace', city: 'Bradford', postcode: 'BD5 0BB' } : null,
+        status: 'completed', payment_status: 'paid', lines: [line], ...t, stripe_fee_pence: null, delivery_address: fulfilment === 'delivery' ? { line1: '10 Example Terrace', city: 'Bradford', postcode: 'BD5 0BB' } : null,
         customer_note: null, contact_phone: null, stripe_session_id: null, stripe_payment_intent_id: `pi_demo_${n}`, rejection_reason: null, refunded_pence: 0,
         history: [{ status: 'completed', at: when }], created_at: when, paid_at: when,
       });

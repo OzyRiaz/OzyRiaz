@@ -12,11 +12,12 @@ import { createOrder, createPaymentSession, markOrderPaid, OrderError } from '@/
 import { buildQuote, QuoteError, type Quote } from '@/lib/services/quote';
 import type { Address, Profile } from '@/lib/types';
 import { activateMembership } from '@/lib/services/membership';
+import { plusEnabled } from '@/lib/services/settings';
 
 const lineSchema = z.object({ itemId: z.string().min(1), qty: z.number().int().min(1).max(50), optionChoiceIds: z.array(z.string()).max(30), note: z.string().max(200).nullish() });
 const quoteSchema = z.object({
   restaurantId: z.string().min(1), lines: z.array(lineSchema).min(1).max(60), fulfilment: z.enum(['delivery', 'collection']),
-  postcode: z.string().max(10).nullish(), promoCode: z.string().max(40).nullish(),
+  postcode: z.string().max(10).nullish(), promoCode: z.string().max(40).nullish(), tipPence: z.number().int().min(0).max(10000).nullish(),
 });
 
 export type QuoteResult = { ok: true; quote: Omit<Quote, 'restaurant'> & { restaurantName: string; restaurantSlug: string; minOrderPence: number } } | { ok: false; error: string };
@@ -55,7 +56,7 @@ export async function placeOrderAction(raw: unknown): Promise<{ url: string } | 
       if (!d.address || !pc) return { error: 'Enter a valid delivery address and postcode' };
       address = { ...d.address, postcode: pc.normalised };
     }
-    const order = await createOrder({ user: s, restaurantId: d.restaurantId, lines: d.lines, fulfilment: d.fulfilment, address, note: d.note, phone: d.phone, promoCode: d.promoCode || null, idempotencyKey: d.idempotencyKey });
+    const order = await createOrder({ user: s, restaurantId: d.restaurantId, lines: d.lines, fulfilment: d.fulfilment, address, note: d.note, phone: d.phone, promoCode: d.promoCode || null, tipPence: d.tipPence ?? 0, idempotencyKey: d.idempotencyKey });
     if (order.payment_status === 'paid') return { url: `/orders/${order.id}` };
     const { url } = await createPaymentSession(order, s.email);
     return { url };
@@ -79,6 +80,7 @@ export async function demoPayAction(fd: FormData) {
 
 export async function demoMembershipAction() {
   if (!demoPaymentsEnabled()) throw new Error('Simulated payments are disabled');
+  if (!(await plusEnabled())) redirect('/plus');
   const s = await requireSession('/plus');
   const end = new Date(Date.now() + 30 * 864e5);
   await activateMembership(s.userId, { customerId: `cus_demo_${s.userId.slice(0, 6)}`, subscriptionId: `sub_demo_${s.userId.slice(0, 6)}`, periodEnd: end });
@@ -89,6 +91,7 @@ export async function demoMembershipAction() {
 
 export async function joinMembershipAction() {
   const s = await requireSession('/plus');
+  if (!(await plusEnabled())) redirect('/plus');
   const db = await getDb();
   const user = (await db.get<Profile>('profiles', { id: s.userId }))!;
   let url: string;

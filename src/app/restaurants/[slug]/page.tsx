@@ -7,11 +7,13 @@ import { Photo } from '@/components/FoodArt';
 import { Badge, Card, Container, Notice } from '@/components/ui';
 import { getSession } from '@/lib/auth/session';
 import { getDb } from '@/lib/db';
+import { isDemo } from '@/lib/config';
 import { DAY_KEYS, isOpenNow } from '@/lib/hours';
 import { fmt } from '@/lib/money';
 import { currentPostcode } from '@/lib/postcode-ctx';
 import { ALLERGEN_NOTICE } from '@/lib/allergens';
 import { availabilityFor, getMenu, getRestaurantBySlug } from '@/lib/services/restaurants';
+import { getSettings } from '@/lib/services/settings';
 import type { DeliveryArea } from '@/lib/types';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -29,14 +31,16 @@ export default async function RestaurantPage({ params, searchParams }: { params:
   const [menu, areas] = await Promise.all([getMenu(r.id), (await getDb()).select<DeliveryArea>('delivery_areas', { restaurant_id: r.id })]);
   const { availability, area } = availabilityFor(r, areas, postcode);
   const open = isOpenNow(r.opening_hours);
-  const orderable = r.status === 'approved' && r.stripe_charges_enabled && availability !== 'unavailable';
+  const plusOn = (await getSettings()).feature_plus_enabled;
+  const offline = r.accepting_orders === false;
+  const orderable = r.status === 'approved' && r.stripe_charges_enabled && availability !== 'unavailable' && !offline && (!r.is_demo || isDemo);
   return (
     <>
       <RememberPostcode postcode={postcode} />
       <div className="bg-navy">
         <Container className="grid gap-5 py-6 md:grid-cols-[1fr_auto] md:items-end md:py-10">
           <div>
-            <div className="flex flex-wrap gap-2">{r.is_demo && <Badge tone="demo">Demonstration restaurant</Badge>}{r.status !== 'approved' && <Badge tone="red">Not live — {r.status}</Badge>}{!open && <Badge tone="grey">Closed now</Badge>}{r.member_offer.enabled && <Badge tone="gold"><Crown size={12} />{r.member_offer.percent}% off for FeastQuarter Plus</Badge>}</div>
+            <div className="flex flex-wrap gap-2">{r.is_demo && <Badge tone="demo">Demonstration restaurant</Badge>}{r.status !== 'approved' && <Badge tone="red">Not live — {r.status}</Badge>}{offline ? <Badge tone="red">Offline — not taking orders</Badge> : !open && <Badge tone="grey">Closed now</Badge>}{plusOn && r.member_offer.enabled && <Badge tone="gold"><Crown size={12} />{r.member_offer.percent}% off for FeastQuarter Plus</Badge>}</div>
             <h1 className="mt-3 font-display text-4xl font-semibold text-white sm:text-5xl">{r.name}</h1>
             <p className="mt-2 max-w-2xl text-white/75">{r.description}</p>
             <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-white/70"><span className="inline-flex items-center gap-1.5"><Clock size={15} className="text-gold" />Ready in ~{r.prep_minutes}–{r.prep_minutes + 15} min</span><span className="inline-flex items-center gap-1.5"><MapPin size={15} className="text-gold" />{r.address_line1}, {r.postcode}</span>{r.phone && <span className="inline-flex items-center gap-1.5"><Phone size={15} className="text-gold" />{r.phone}</span>}</p>

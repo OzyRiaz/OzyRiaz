@@ -5,6 +5,7 @@ import type { Membership, Order, Profile, Restaurant } from '../types';
 import { activateMembership, endMembership } from './membership';
 import { notify } from './notify';
 import { markOrderPaid, markPaymentFailed, reconcileRefund } from './orders';
+import { recordStripeFeeForPaymentIntent } from './reconcile';
 
 const periodEnd = (sub: any): Date | null => {
   const s = sub?.items?.data?.[0]?.current_period_end ?? sub?.current_period_end;
@@ -110,6 +111,14 @@ async function handle(event: Stripe.Event) {
       if (a.charges_enabled && !r.stripe_charges_enabled) {
         await notify({ kind: 'restaurant_onboarding', to: r.email, subject: 'Your FeastQuarter payments are enabled', body: `${r.name} can now take paid orders on FeastQuarter. Payouts: ${a.payouts_enabled ? 'enabled' : 'pending Stripe verification'}.` });
       }
+      return;
+    }
+    case 'charge.succeeded':
+    case 'charge.updated': {
+      // Capture the ACTUAL Stripe processing fee. Never fail the payment webhook over reporting data; the daily reconcile retries.
+      const c = event.data.object as Stripe.Charge;
+      const pi = idOf(c.payment_intent);
+      if (pi) { try { await recordStripeFeeForPaymentIntent(pi); } catch (e) { console.error('fee capture failed', pi, (e as Error).message); } }
       return;
     }
     case 'charge.refunded': {

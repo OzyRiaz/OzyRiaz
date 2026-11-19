@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth/session';
 import { logoutAction } from '@/lib/auth/actions';
 import { isDemo } from '@/lib/config';
+import { plusEnabled } from '@/lib/services/settings';
 import { Logo } from './Logo';
 import { BasketButton } from './Chrome';
 
 export async function Header() {
   const s = await getSession();
-  const nav = [{ href: '/restaurants', label: 'Restaurants' }, { href: '/cuisines', label: 'Cuisines' }, { href: '/offers', label: 'Offers' }, { href: '/plus', label: 'FeastQuarter Plus' }, { href: '/help', label: 'Help' }];
+  const plus = await plusEnabled();
+  const nav = [{ href: '/restaurants', label: 'Restaurants' }, { href: '/cuisines', label: 'Cuisines' }, { href: '/offers', label: 'Offers' }, ...(plus ? [{ href: '/plus', label: 'FeastQuarter Plus' }] : []), { href: '/help', label: 'Help' }];
   return (
     <>
       {isDemo && <div className="bg-violet-700 px-4 py-1.5 text-center text-xs font-medium text-white">Demonstration mode — fictional restaurants, simulated payments. No real orders or charges.</div>}

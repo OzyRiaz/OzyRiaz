@@ -19,6 +19,7 @@ export async function getActiveMembership(userId: string) {
 /** Membership money goes to the FeastQuarter PLATFORM Stripe account (no transfer_data, no Connect). */
 export async function startMembershipCheckout(user: Profile): Promise<{ url: string }> {
   const db = await getDb();
+  if (!(await getSettings()).feature_plus_enabled) throw new Error('FeastQuarter Plus is not available yet');
   if (await getActiveMembership(user.id)) throw new Error('You already have an active FeastQuarter Plus membership');
   if (demoPaymentsEnabled()) {
     return { url: '/plus/demo' };

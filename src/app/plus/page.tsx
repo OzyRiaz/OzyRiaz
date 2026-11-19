@@ -20,6 +20,10 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
   const active = s ? await getActiveMembership(s.userId) : null;
   const any = s ? await getMembership(s.userId) : null;
   const partners = (await (await getDb()).select<Restaurant>('restaurants', { status: 'approved' })).filter((r) => r.member_offer.enabled);
+  if (!settings.feature_plus_enabled && !any) {
+    // Feature flag OFF (launch default): no purchase path and no promotion.
+    return <Container className="max-w-2xl py-16"><Card className="p-8 text-center"><h1 className="font-display text-3xl font-semibold text-navy">FeastQuarter Plus is coming soon</h1><p className="mt-2 text-muted">Membership isn&apos;t available yet. You don&apos;t need it to order — everything else works as normal.</p><div className="mt-5"><LinkButton href="/restaurants">Find food</LinkButton></div></Card></Container>;
+  }
   return (
     <Container className="max-w-4xl py-10">
       <div className="rounded-3xl bg-navy p-8 text-white sm:p-12">
@@ -31,7 +35,7 @@ export default async function Plus({ searchParams }: { searchParams: Promise<{ s
           {sp.status === 'success' && <div className="mb-4"><Notice tone="green">Thanks! We&apos;re confirming your membership with our payment provider — your benefits switch on as soon as that confirmation arrives.</Notice></div>}
           {sp.status === 'unavailable' && <div className="mb-4"><Notice tone="gold">{sp.msg ?? 'Memberships are not available right now.'}</Notice></div>}
           {sp.status === 'cancelled' && <div className="mb-4"><Notice tone="gold">Checkout cancelled — you haven&apos;t been charged.</Notice></div>}
-          {active ? <p className="font-semibold text-gold">✓ You&apos;re a member{active.cancel_at_period_end ? ` — ends ${new Date(active.current_period_end!).toLocaleDateString('en-GB')}` : active.current_period_end ? ` — renews ${new Date(active.current_period_end).toLocaleDateString('en-GB')}` : ''}</p>
+          {!settings.feature_plus_enabled && !active ? <p className="font-semibold text-gold">Joining is not open at the moment.</p> : active ? <p className="font-semibold text-gold">✓ You&apos;re a member{active.cancel_at_period_end ? ` — ends ${new Date(active.current_period_end!).toLocaleDateString('en-GB')}` : active.current_period_end ? ` — renews ${new Date(active.current_period_end).toLocaleDateString('en-GB')}` : ''}</p>
             : !s ? <LinkButton href="/login?next=/plus" variant="gold" size="lg">Sign in to join</LinkButton>
             : <form action={demoPaymentsEnabled() ? demoMembershipAction : joinMembershipAction}><Submit variant="gold" size="lg" pendingText="Redirecting…">Join for {fmt(settings.membership_price_pence)}/month</Submit>{demoPaymentsEnabled() && <p className="mt-2 text-xs text-white/60">Demo mode: simulated payment, no charge.</p>}</form>}
           {any?.status === 'past_due' && <div className="mt-3"><Notice tone="red">Your last payment failed. Update your payment method with Stripe to restore benefits.</Notice></div>}

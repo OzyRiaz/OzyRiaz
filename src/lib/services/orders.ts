@@ -24,6 +24,7 @@ export interface CreateOrderInput {
   note?: string | null;
   phone?: string | null;
   promoCode?: string | null;
+  tipPence?: number | null;
   idempotencyKey: string;
 }
 
@@ -39,7 +40,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (!customer || customer.suspended || customer.deleted_at) throw new OrderError('Your account cannot place orders');
   const quote = await buildQuote({
     restaurantId: input.restaurantId, lines: input.lines, fulfilment: input.fulfilment,
-    postcode: input.address?.postcode, promoCode: input.promoCode, userId: input.user.userId,
+    postcode: input.address?.postcode, promoCode: input.promoCode, tipPence: input.tipPence, userId: input.user.userId,
   });
   if (input.promoCode && quote.promoError) throw new QuoteError(quote.promoError);
   if ((!isDemo || process.env.ENFORCE_OPENING_HOURS === 'true') && !isOpenNow(quote.restaurant.opening_hours)) throw new OrderError(`${quote.restaurant.name} is closed right now`);
@@ -81,6 +82,7 @@ export async function createPaymentSession(order: Order, customerEmail: string):
       product_data: { name: l.name, ...(l.options.length ? { description: l.options.map((o) => o.choice).join(', ') } : {}) },
     },
   }));
+  if (order.tip_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.tip_pence, product_data: { name: 'Tip (goes to the restaurant)' } } });
   if (order.delivery_fee_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.delivery_fee_pence, product_data: { name: 'Delivery fee (set by restaurant)' } } });
   const discounts = order.discount_pence > 0
     ? [{ coupon: (await stripe.coupons.create({ amount_off: order.discount_pence, currency: 'gbp', duration: 'once', name: (order.discount_label ?? 'Discount').slice(0, 40) })).id }]
@@ -95,7 +97,9 @@ export async function createPaymentSession(order: Order, customerEmail: string):
       // Destination charge: money lands with the restaurant's connected account; FeastQuarter keeps the application fee.
       ...(order.application_fee_pence > 0 ? { application_fee_amount: order.application_fee_pence } : {}),
       transfer_data: { destination: restaurant.stripe_account_id },
-      on_behalf_of: restaurant.stripe_account_id,
+      // Default OFF: FeastQuarter is the settlement merchant (customers see FeastQuarter on their statement).
+      // on_behalf_of is only REQUIRED when platform and restaurant are in different regions (Stripe docs). Platform pays Stripe fees either way.
+      ...(process.env.STRIPE_USE_ON_BEHALF_OF === 'true' ? { on_behalf_of: restaurant.stripe_account_id } : {}),
       description: `FeastQuarter order ${order.reference} — ${restaurant.name}`,
       metadata: { order_id: order.id, reference: order.reference },
     },

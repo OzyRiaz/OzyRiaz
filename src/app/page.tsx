@@ -22,7 +22,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
     getDb().then((d) => d.select<Promotion>('promotions', { active: true })),
   ]);
   const all = await listRestaurants({ postcode });
-  const offers = all.filter((r) => r.has_member_offer).slice(0, 3);
+  const offers = settings.feature_plus_enabled ? all.filter((r) => r.has_member_offer).slice(0, 3) : [];
   return (
     <>
       <section className="relative overflow-hidden bg-navy text-white">
@@ -80,7 +80,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
           <p className="mt-3 text-xs text-muted">Offers shown are real settings in this platform — we never show crossed-out “was” prices or invented savings.</p>
         </section>
 
-        <section className="mt-12 overflow-hidden rounded-3xl bg-navy text-white" aria-labelledby="plus">
+        {settings.feature_plus_enabled && <section className="mt-12 overflow-hidden rounded-3xl bg-navy text-white" aria-labelledby="plus">
           <div className="grid gap-6 p-7 sm:p-10 md:grid-cols-[1.4fr_1fr] md:items-center">
             <div>
               <Badge tone="gold"><Crown size={12} />FeastQuarter Plus</Badge>
@@ -90,12 +90,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
             </div>
             <div className="md:text-right"><LinkButton href="/plus" variant="gold" size="lg">Explore membership</LinkButton></div>
           </div>
-        </section>
+        </section>}
 
         <section className="mt-12 grid gap-5 md:grid-cols-2" aria-labelledby="partner">
           <Card className="flex flex-col justify-between p-7">
             <div><Store className="text-gold-600" /><h2 id="partner" className="mt-3 font-display text-2xl font-semibold text-navy">Run a restaurant in {city.name}?</h2>
-              <p className="mt-2 text-muted">No joining fee. No monthly fee. Just {pctLabel(settings.commission_delivery_bps)} commission on delivery orders and {pctLabel(settings.commission_collection_bps)} on collection. You keep your own drivers, delivery areas and delivery charges.</p></div>
+              <p className="mt-2 text-muted">No joining fee. No monthly fee. A flat {pctLabel(settings.commission_bps)} commission on food for delivery and collection orders, with standard card processing included. You keep your own drivers, delivery areas and delivery charges.</p></div>
             <div className="mt-5"><LinkButton href="/partner" variant="primary">Apply to join</LinkButton></div>
           </Card>
           <Card className="p-7">

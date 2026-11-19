@@ -5,6 +5,7 @@ import { BasketProvider } from '@/components/BasketProvider';
 import { RegisterSW, TabBar } from '@/components/Chrome';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
+import { plusEnabled } from '@/lib/services/settings';
 import { BRAND } from '@/lib/brand';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -21,7 +22,8 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: '#132C39', width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const plus = await plusEnabled();
   return (
     <html lang="en-GB" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-screen pb-16 md:pb-0">
@@ -29,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <BasketProvider>
           <Header />
           <main id="main">{children}</main>
-          <Footer />
+          <Footer plus={plus} />
           <TabBar />
         </BasketProvider>
         <RegisterSW />
