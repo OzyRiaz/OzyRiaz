@@ -87,12 +87,13 @@ describe('accountant-grade breakdown keeps customer money and FeastQuarter reven
     const b = await breakdown();
     expect(b.food_sales_pence - base.food_sales_pence).toBe(1920);
     expect(b.delivery_charges_pence - base.delivery_charges_pence).toBe(250);
-    expect(b.gross_customer_payments_pence - base.gross_customer_payments_pence).toBe(2170);
+    expect(b.gross_customer_payments_pence - base.gross_customer_payments_pence).toBe(2269); // food + delivery + 99p service fee
     expect(b.platform_commission_pence - base.platform_commission_pence).toBe(192); // 10% of FOOD only
-    expect(b.restaurant_allocation_pence - base.restaurant_allocation_pence).toBe(2170 - 192);
-    expect(b.platform_taxable_revenue_pence - base.platform_taxable_revenue_pence).toBe(192);
+    expect(b.platform_service_fee_pence - base.platform_service_fee_pence).toBe(99); // separate revenue stream
+    expect(b.restaurant_allocation_pence - base.restaurant_allocation_pence).toBe(2170 - 192); // the 99p never reaches the restaurant
+    expect(b.platform_taxable_revenue_pence - base.platform_taxable_revenue_pence).toBe(192 + 99);
     expect(b.processing_fees_actual_pence - base.processing_fees_actual_pence).toBe(55);
-    expect(b.net_contribution_pence - base.net_contribution_pence).toBe(192 - 55);
+    expect(b.net_contribution_pence - base.net_contribution_pence).toBe(192 + 99 - 55);
     expect(b.platform_taxable_revenue_pence).toBeLessThan(b.gross_customer_payments_pence); // never conflated
   });
   it('unreconciled orders are ESTIMATED and flagged, never silently treated as free', async () => {
@@ -111,15 +112,17 @@ describe('accountant-grade breakdown keeps customer money and FeastQuarter reven
     expect(b.net_contribution_pence - base.net_contribution_pence).toBe(-200);
   });
   it('full refund removes the commission from revenue; partial refund removes it pro rata', async () => {
-    const o = await paidOrder(10, 'collection', 'pi_demo_ref');   // £32.00 food, commission £3.20
+    const o = await paidOrder(10, 'collection', 'pi_demo_ref');   // £32.00 food + 99p service fee, commission £3.20
     const base = await breakdown();
-    await refundOrder(o.id, 1600, 'partial', null);                 // half refunded
+    await refundOrder(o.id, 1600, 'partial', null);                 // half of the food refunded; service fee untouched
     const half = await breakdown();
     expect(half.refunds_pence - base.refunds_pence).toBe(1600);
     expect(base.platform_commission_pence - half.platform_commission_pence).toBe(160);
-    await refundOrder(o.id, 1600, 'rest', null);
+    expect(half.platform_service_fee_pence).toBe(base.platform_service_fee_pence); // a food-only partial refund keeps the 99p
+    await refundOrder(o.id, 1600 + 99, 'rest', null);               // remainder of the order incl. the 99p
     const full = await breakdown();
     expect(half.platform_commission_pence - full.platform_commission_pence).toBe(160);
+    expect(half.platform_service_fee_pence - full.platform_service_fee_pence).toBe(99);
   });
   it('admin overview counts, city rollup and top restaurants', async () => {
     await paidOrder(6, 'delivery', 'pi_demo_a');

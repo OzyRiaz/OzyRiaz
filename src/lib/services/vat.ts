@@ -1,16 +1,17 @@
 import { getDb } from '../db';
 import type { Membership, Order, Transaction } from '../types';
+import { commissionKept, serviceFeeKept } from './reports';
 import { getSettings } from './settings';
 
 export type VatLevel = 'ok' | 'watch' | 'urgent' | 'exceeded';
 export interface VatStatus { registered: boolean; income_pence: number; threshold_pence: number; pct: number; level: VatLevel; headroom_pence: number; message: string }
 
-/** FeastQuarter's own taxable income (excluding any VAT): commission actually kept (net of refunds) + membership payments. NOT customer food payments. */
+/** FeastQuarter's own taxable income (excluding any VAT): commission + 99p service fees actually kept (net of refunds) + membership payments. NOT customer food payments. */
 export async function taxablePlatformIncome(from: Date, to = new Date()): Promise<number> {
   const db = await getDb();
   const inR = (iso: string | null) => !!iso && new Date(iso) >= from && new Date(iso) <= to;
   const orders = (await db.select<Order>('orders')).filter((o) => ['paid', 'partially_refunded', 'refunded', 'disputed'].includes(o.payment_status) && inR(o.paid_at));
-  const fees = orders.reduce((s, o) => s + Math.round(((o.application_fee_pence - (o.commission_vat_pence ?? 0)) * (o.total_pence - o.refunded_pence)) / Math.max(o.total_pence, 1)), 0);
+  const fees = orders.reduce((s, o) => s + Math.max(0, commissionKept(o) - (o.commission_vat_pence ?? 0)) + Math.max(0, serviceFeeKept(o) - (o.service_fee_vat_pence ?? 0)), 0);
   const subs = (await db.select<Transaction>('transactions', { kind: 'membership_payment' })).filter((t) => inR(t.created_at)).reduce((s, t) => s + t.amount_pence, 0);
   return fees + subs;
 }

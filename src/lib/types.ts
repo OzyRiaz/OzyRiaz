@@ -147,6 +147,15 @@ export interface Order {
   discount_funded_by_platform_pence: number;
   promo_code: string | null;
   tip_pence: number; // tips are never commissionable
+  service_fee_pence: number; // FeastQuarter customer service fee at the time of purchase (platform income, not restaurant revenue)
+  service_fee_vat_pence: number; // 0 while FeastQuarter is not VAT registered
+  refunded_food_pence: number;
+  refunded_delivery_pence: number;
+  refunded_tip_pence: number;
+  refunded_service_fee_pence: number;
+  commission_refunded_pence: number; // commission FeastQuarter gave back through refunds
+  restaurant_refunded_pence: number; // amount reversed from / borne by the restaurant through refunds
+  stripe_transfer_id: string | null;
   total_pence: number;
   commission_bps: number;
   commission_pence: number; // gross commission before platform-funded discount
@@ -169,6 +178,13 @@ export interface Order {
   history: { status: OrderStatus; at: string; by?: string }[];
   created_at: string;
   paid_at: string | null;
+}
+
+export interface OrderRefund {
+  id: string; order_id: string; kind: 'full' | 'partial' | 'service_fee' | 'declined' | 'customer_cancel' | 'timeout' | 'external';
+  amount_pence: number; food_pence: number; delivery_pence: number; tip_pence: number; service_fee_pence: number;
+  commission_returned_pence: number; restaurant_share_pence: number; platform_share_pence: number;
+  reason: string; actor_id: string | null; stripe_refund_id: string | null; stripe_reversal_id: string | null; reversal_error: string | null; created_at: string;
 }
 
 export interface Membership {
@@ -212,6 +228,12 @@ export interface PlatformSettings {
   commission_vat_mode: 'none' | 'inclusive' | 'exclusive';
   /** Feature flag. FeastQuarter Plus is OFF at launch until the owner authorises it. */
   feature_plus_enabled: boolean;
+  /** Fixed customer service fee per order (delivery AND collection). Belongs to FeastQuarter, never the restaurant, never commissionable. 99 = £0.99. */
+  customer_service_fee_pence: number;
+  /** VAT on the service fee if FeastQuarter becomes registered. 'exclusive' would RAISE the customer price and needs explicit approval. */
+  service_fee_vat_mode: 'none' | 'inclusive' | 'exclusive';
+  /** If true the service fee is refunded when the CUSTOMER cancels before the restaurant accepts. (Always refunded when the restaurant declines/fails.) */
+  service_fee_refund_on_customer_cancel: boolean;
   membership_price_pence: number;
   membership_benefits: string[];
   member_discount_funding: 'restaurant' | 'platform';

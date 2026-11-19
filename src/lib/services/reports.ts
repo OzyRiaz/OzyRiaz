@@ -1,16 +1,40 @@
 import { getDb } from '../db';
 import { estimateProcessingFee } from '../money';
+import { effectiveCommission } from '../refunds';
 import type { Membership, Order, Profile, Restaurant, Transaction } from '../types';
 
 const paidStates = new Set(['paid', 'partially_refunded', 'refunded', 'disputed']);
-const net = (o: Order) => Math.round((o.application_fee_pence * (o.total_pence - o.refunded_pence)) / Math.max(o.total_pence, 1));
+/**
+ * Refund allocation for an order. New orders carry exact components (see refundOrder). Orders refunded BEFORE
+ * component tracking existed (all components 0 but refunded_pence > 0) fall back to a proportional split.
+ */
+export function refundParts(o: Order) {
+  const comp = (o.refunded_food_pence ?? 0) + (o.refunded_delivery_pence ?? 0) + (o.refunded_tip_pence ?? 0) + (o.refunded_service_fee_pence ?? 0);
+  const eff = effectiveCommission(o);
+  if (comp === 0 && o.refunded_pence > 0) {
+    const f = o.refunded_pence / Math.max(o.total_pence, 1);
+    const commission = Math.round(eff * f), service = Math.round((o.service_fee_pence ?? 0) * f);
+    return { commission, service, restaurant: o.refunded_pence - commission - service };
+  }
+  const commission = o.commission_refunded_pence ?? 0, service = o.refunded_service_fee_pence ?? 0;
+  return { commission, service, restaurant: (o.refunded_food_pence ?? 0) + (o.refunded_delivery_pence ?? 0) + (o.refunded_tip_pence ?? 0) - commission };
+}
+/** Commission FeastQuarter keeps on an order after refunds (food-only; incl. any VAT element). */
+export const commissionKept = (o: Order) => Math.max(0, effectiveCommission(o) - refundParts(o).commission);
+/** Service fee FeastQuarter keeps after refunds (incl. any VAT element). */
+export const serviceFeeKept = (o: Order) => Math.max(0, (o.service_fee_pence ?? 0) - refundParts(o).service);
+/** Commission only — what a restaurant pays. The service fee is never charged to, or earned by, the restaurant. */
+const net = commissionKept;
+/** What the restaurant is due: its allocation less the refunds it bore. The service fee never enters this. */
+export const restaurantDue = (o: Order) => Math.max(0, o.restaurant_net_pence - refundParts(o).restaurant);
 
 export interface PlatformStats {
   gmv_pence: number;                // gross value of all paid orders (what customers paid, before refunds)
   refunded_pence: number;
-  commission_revenue_pence: number; // FeastQuarter application fees, net of refunds
+  commission_revenue_pence: number; // 10% commission on food, net of refunds
+  service_fee_revenue_pence: number; // 99p customer service fees, net of refunds
   subscription_revenue_pence: number;
-  platform_revenue_pence: number;   // commission + subscriptions  (NOT GMV)
+  platform_revenue_pence: number;   // commission + service fees + subscriptions  (NOT GMV)
   active_members: number;
   paid_orders: number;
   failed_payments: number;
@@ -26,10 +50,11 @@ export async function platformStats(range?: { from?: Date; to?: Date }): Promise
   const gmv = orders.reduce((s, o) => s + o.total_pence, 0);
   const refunded = orders.reduce((s, o) => s + o.refunded_pence, 0);
   const commission = orders.reduce((s, o) => s + net(o), 0);
+  const serviceFees = orders.reduce((s, o) => s + serviceFeeKept(o), 0);
   const subs = tx.filter((t) => t.kind === 'membership_payment').reduce((s, t) => s + t.amount_pence, 0);
   return {
-    gmv_pence: gmv, refunded_pence: refunded, commission_revenue_pence: commission, subscription_revenue_pence: subs,
-    platform_revenue_pence: commission + subs, active_members: members.length, paid_orders: orders.length,
+    gmv_pence: gmv, refunded_pence: refunded, commission_revenue_pence: commission, service_fee_revenue_pence: serviceFees, subscription_revenue_pence: subs,
+    platform_revenue_pence: commission + serviceFees + subs, active_members: members.length, paid_orders: orders.length,
     failed_payments: tx.filter((t) => t.kind === 'payment_failed').length,
     open_disputes: tx.filter((t) => t.kind === 'dispute' && t.status === 'open').length,
   };
@@ -39,9 +64,10 @@ export interface RestaurantEarnings { orders: number; gross_pence: number; commi
 export async function restaurantEarnings(restaurantId: string): Promise<{ summary: RestaurantEarnings; orders: Order[] }> {
   const orders = (await (await getDb()).select<Order>('orders', { restaurant_id: restaurantId }, { order: ['created_at', 'desc'] })).filter((o) => paidStates.has(o.payment_status));
   const summary = orders.reduce<RestaurantEarnings>((s, o) => {
-    const kept = o.total_pence - o.refunded_pence;
     const fee = net(o);
-    return { orders: s.orders + 1, gross_pence: s.gross_pence + o.total_pence, commission_pence: s.commission_pence + fee, refunded_pence: s.refunded_pence + o.refunded_pence, net_pence: s.net_pence + kept - fee, food_sales_pence: s.food_sales_pence + o.subtotal_pence - o.discount_funded_by_restaurant_pence, delivery_pence: s.delivery_pence + o.delivery_fee_pence, tips_pence: s.tips_pence + (o.tip_pence ?? 0) };
+    const rp = refundParts(o);
+    // Restaurant view: the 99p service fee is FeastQuarter's, so it is excluded from gross, refunds and net.
+    return { orders: s.orders + 1, gross_pence: s.gross_pence + o.total_pence - (o.service_fee_pence ?? 0), commission_pence: s.commission_pence + fee, refunded_pence: s.refunded_pence + o.refunded_pence - rp.service, net_pence: s.net_pence + restaurantDue(o), food_sales_pence: s.food_sales_pence + o.subtotal_pence - o.discount_funded_by_restaurant_pence, delivery_pence: s.delivery_pence + o.delivery_fee_pence, tips_pence: s.tips_pence + (o.tip_pence ?? 0) };
   }, { orders: 0, gross_pence: 0, commission_pence: 0, refunded_pence: 0, net_pence: 0, food_sales_pence: 0, delivery_pence: 0, tips_pence: 0 });
   return { summary, orders };
 }
@@ -79,20 +105,26 @@ export interface Breakdown {
   refunds_pence: number;
   restaurant_allocation_pence: number; // what restaurants are due after commission and refunds (ESTIMATE until Stripe payouts confirm)
   platform_commission_pence: number;   // FeastQuarter's commission kept, net of refunds, excluding VAT
+  platform_service_fee_pence: number;  // FeastQuarter's 99p service fees kept, net of refunds, excluding VAT
+  service_fees_charged_pence: number;  // gross service fees charged (before refunds)
+  refunds_food_delivery_tip_pence: number;
+  refunds_service_fee_pence: number;
+  collection_orders: number;
+  delivery_orders: number;
   platform_vat_on_commission_pence: number;
+  platform_vat_on_service_fee_pence: number;
   membership_revenue_pence: number;
-  platform_taxable_revenue_pence: number; // commission + membership (the figure relevant to the VAT threshold)
+  platform_taxable_revenue_pence: number; // commission + service fees + membership (the figure relevant to the VAT threshold)
   processing_fees_actual_pence: number;
   processing_fees_estimated_pence: number; // ONLY for orders not yet reconciled; labelled as an estimate
   orders_missing_fee_data: number;
   other_stripe_costs_pence: number;    // Connect account/payout fees etc. entered from Stripe invoices
-  net_contribution_pence: number;      // taxable revenue − processing (actual + estimated) − other Stripe costs
+  net_contribution_pence: number;      // commission + service fee + membership revenue − processing (actual + estimated) − other Stripe costs
   disputes_open: number;
   disputes_lost_pence: number;
 }
 
 const PAID = new Set(['paid', 'partially_refunded', 'refunded', 'disputed']);
-const kept = (o: Order, v: number) => Math.round((v * (o.total_pence - o.refunded_pence)) / Math.max(o.total_pence, 1));
 
 export async function breakdown(range?: { from?: Date; to?: Date }): Promise<Breakdown> {
   const db = await getDb();
@@ -101,13 +133,14 @@ export async function breakdown(range?: { from?: Date; to?: Date }): Promise<Bre
   const tx = (await db.select<Transaction>('transactions')).filter((t) => inR(t.created_at));
   const expenses = (await db.select<{ amount_pence: number; incurred_on: string }>('platform_expenses')).filter((e) => inR(e.incurred_on));
   const sum = (f: (o: Order) => number) => orders.reduce((s, o) => s + f(o), 0);
-  const commission = sum((o) => kept(o, o.application_fee_pence - (o.commission_vat_pence ?? 0)));
+  const commission = sum((o) => Math.max(0, commissionKept(o) - (o.commission_vat_pence ?? 0)));
+  const serviceFee = sum((o) => Math.max(0, serviceFeeKept(o) - (o.service_fee_vat_pence ?? 0)));
   const subs = tx.filter((t) => t.kind === 'membership_payment').reduce((s, t) => s + t.amount_pence, 0);
   const actual = sum((o) => o.stripe_fee_pence ?? 0);
   const missing = orders.filter((o) => o.stripe_fee_pence === null || o.stripe_fee_pence === undefined);
   const estimated = missing.reduce((s, o) => s + estimateProcessingFee(o.total_pence), 0);
   const other = expenses.reduce((s, e) => s + e.amount_pence, 0);
-  const taxable = commission + subs;
+  const taxable = commission + serviceFee + subs;
   return {
     paid_orders: orders.length,
     food_sales_pence: sum((o) => o.subtotal_pence - o.discount_funded_by_restaurant_pence),
@@ -115,9 +148,16 @@ export async function breakdown(range?: { from?: Date; to?: Date }): Promise<Bre
     tips_pence: sum((o) => o.tip_pence ?? 0),
     gross_customer_payments_pence: sum((o) => o.total_pence),
     refunds_pence: sum((o) => o.refunded_pence),
-    restaurant_allocation_pence: sum((o) => kept(o, o.restaurant_net_pence)),
+    restaurant_allocation_pence: sum(restaurantDue),
     platform_commission_pence: commission,
-    platform_vat_on_commission_pence: sum((o) => kept(o, o.commission_vat_pence ?? 0)),
+    platform_service_fee_pence: serviceFee,
+    service_fees_charged_pence: sum((o) => o.service_fee_pence ?? 0),
+    refunds_food_delivery_tip_pence: sum((o) => o.refunded_pence - refundParts(o).service),
+    refunds_service_fee_pence: sum((o) => refundParts(o).service),
+    collection_orders: orders.filter((o) => o.fulfilment === 'collection').length,
+    delivery_orders: orders.filter((o) => o.fulfilment === 'delivery').length,
+    platform_vat_on_commission_pence: sum((o) => o.commission_vat_pence ?? 0),
+    platform_vat_on_service_fee_pence: sum((o) => o.service_fee_vat_pence ?? 0),
     membership_revenue_pence: subs,
     platform_taxable_revenue_pence: taxable,
     processing_fees_actual_pence: actual,
@@ -152,7 +192,7 @@ export async function adminOverview(now = new Date()): Promise<AdminOverview> {
   const top = new Map<string, { orders: number; food: number }>();
   for (const o of paid) {
     const r = rName.get(o.restaurant_id); const c = r?.city_slug ?? 'unknown';
-    const a = city.get(c) ?? { orders: 0, food: 0, comm: 0 }; a.orders++; a.food += o.subtotal_pence - o.discount_funded_by_restaurant_pence; a.comm += kept(o, o.application_fee_pence - (o.commission_vat_pence ?? 0)); city.set(c, a);
+    const a = city.get(c) ?? { orders: 0, food: 0, comm: 0 }; a.orders++; a.food += o.subtotal_pence - o.discount_funded_by_restaurant_pence; a.comm += commissionKept(o); city.set(c, a);
     const t = top.get(o.restaurant_id) ?? { orders: 0, food: 0 }; t.orders++; t.food += o.subtotal_pence; top.set(o.restaurant_id, t);
   }
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

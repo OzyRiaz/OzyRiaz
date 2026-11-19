@@ -30,6 +30,9 @@ export const DEFAULT_SETTINGS = {
   vat_rate_bps: 2000,
   commission_vat_mode: 'none',
   feature_plus_enabled: false, // FeastQuarter Plus is OFF at launch
+  customer_service_fee_pence: 99, // fixed £0.99 per order, delivery AND collection; FeastQuarter income, not restaurant revenue
+  service_fee_vat_mode: 'none',
+  service_fee_refund_on_customer_cancel: true,
   membership_price_pence: 499,
   membership_benefits: [
     'Access to member-only discounts at participating restaurants',
@@ -241,6 +244,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
         reference: `FQ-DEMO${String(n).padStart(3, '0')}`, customer_id: customer.id, restaurant_id: r.id, idempotency_key: `seed-${n}`, fulfilment,
         status: 'completed', payment_status: 'paid', lines: [line], ...t, stripe_fee_pence: null, delivery_address: fulfilment === 'delivery' ? { line1: '10 Example Terrace', city: 'Bradford', postcode: 'BD5 0BB' } : null,
         customer_note: null, contact_phone: null, stripe_session_id: null, stripe_payment_intent_id: `pi_demo_${n}`, rejection_reason: null, refunded_pence: 0,
+        refunded_food_pence: 0, refunded_delivery_pence: 0, refunded_tip_pence: 0, refunded_service_fee_pence: 0, commission_refunded_pence: 0, restaurant_refunded_pence: 0, stripe_transfer_id: null,
         history: [{ status: 'completed', at: when }], created_at: when, paid_at: when,
       });
       await db.insert('transactions', { kind: 'order_payment', order_id: null, user_id: customer.id, restaurant_id: r.id, amount_pence: t.total_pence, status: 'succeeded', stripe_ref: `pi_demo_${n}`, note: 'Seed demo order', created_at: when });

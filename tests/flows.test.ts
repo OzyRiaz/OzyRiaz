@@ -36,7 +36,9 @@ describe('ordering', () => {
     expect(order.delivery_fee_pence).toBe(250);
     expect(order.commission_bps).toBe(1000);
     expect(order.commission_pence).toBe(192); // flat 10% of £19.20 food; delivery fee excluded
-    expect(order.restaurant_net_pence).toBe(order.total_pence - 192);
+    expect(order.service_fee_pence).toBe(99);
+    expect(order.application_fee_pence).toBe(192 + 99);
+    expect(order.restaurant_net_pence).toBe(order.total_pence - 192 - 99);
     expect(order.paid_at).toBeNull();
   });
 
@@ -223,7 +225,7 @@ describe('membership (£4.99/month, platform account)', () => {
     expect(await getActiveMembership(u.userId)).not.toBeNull();
     const stats = await platformStats();
     expect(stats.subscription_revenue_pence).toBe(499);
-    expect(stats.platform_revenue_pence).toBe(stats.commission_revenue_pence + 499);
+    expect(stats.platform_revenue_pence).toBe(stats.commission_revenue_pence + stats.service_fee_revenue_pence + 499);
     expect(stats.gmv_pence).toBeGreaterThan(stats.platform_revenue_pence); // GMV is NOT revenue
     const mails = (await db.select<Notification>('notifications')).map((n) => n.kind);
     expect(mails.filter((k) => k === 'membership_confirmation')).toHaveLength(1);

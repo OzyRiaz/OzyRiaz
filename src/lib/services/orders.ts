@@ -6,6 +6,8 @@ import { canTransition, labelFor, STATUS_LABEL } from '../order-state';
 import type { BasketLineInput } from '../pricing';
 import { getStripe } from '../stripe';
 import type { Fulfilment, Order, OrderStatus, Profile, Promotion, Restaurant, Session, Transaction } from '../types';
+import { allocateRefund } from '../refunds';
+import { getSettings } from './settings';
 import { notify, sendSms } from './notify';
 import { buildQuote, QuoteError } from './quote';
 import { isOpenNow } from '../hours';
@@ -57,6 +59,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       delivery_address: input.fulfilment === 'delivery' ? input.address : null,
       customer_note: input.note?.slice(0, 500) ?? null, contact_phone: input.phone ?? null,
       stripe_session_id: null, stripe_payment_intent_id: null, rejection_reason: null, refunded_pence: 0,
+      refunded_food_pence: 0, refunded_delivery_pence: 0, refunded_tip_pence: 0, refunded_service_fee_pence: 0, commission_refunded_pence: 0, restaurant_refunded_pence: 0, stripe_transfer_id: null,
       history: [{ status: 'pending_payment', at: now }], paid_at: null, stripe_fee_pence: null, ready_in_minutes: null, accepted_at: null, escalated_at: null, source: input.source ?? null, campaign: input.campaign ?? null,
     });
   } catch (e) {
@@ -86,6 +89,8 @@ export async function createPaymentSession(order: Order, customerEmail: string):
   }));
   if (order.tip_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.tip_pence, product_data: { name: 'Tip (goes to the restaurant)' } } });
   if (order.delivery_fee_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.delivery_fee_pence, product_data: { name: 'Delivery fee (set by restaurant)' } } });
+  // FeastQuarter customer service fee: one line, shown once. Session creation is idempotent per order, so retries never add it twice.
+  if ((order.service_fee_pence ?? 0) + (order.service_fee_vat_pence ?? 0) > 0 && (order.service_fee_pence ?? 0) > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.service_fee_pence, product_data: { name: 'FeastQuarter service fee' } } });
   const discounts = order.discount_pence > 0
     ? [{ coupon: (await stripe.coupons.create({ amount_off: order.discount_pence, currency: 'gbp', duration: 'once', name: (order.discount_label ?? 'Discount').slice(0, 40) })).id }]
     : undefined;
@@ -135,7 +140,7 @@ export async function markOrderPaid(orderId: string, p: { paymentIntentId?: stri
   if (!claimed.length || (claimed[0].paid_at !== now)) return { changed: false, order: claimed[0] ?? order };
   const ref = p.paymentIntentId ?? null;
   await db.insert('transactions', { kind: 'order_payment', order_id: order.id, user_id: order.customer_id, restaurant_id: order.restaurant_id, amount_pence: order.total_pence, status: 'succeeded', stripe_ref: ref, note: p.source === 'demo' ? 'Simulated demo payment' : null });
-  await db.insert('transactions', { kind: 'application_fee', order_id: order.id, user_id: null, restaurant_id: order.restaurant_id, amount_pence: order.application_fee_pence, status: 'succeeded', stripe_ref: ref, note: `${order.commission_bps / 100}% ${order.fulfilment} commission` });
+  await db.insert('transactions', { kind: 'application_fee', order_id: order.id, user_id: null, restaurant_id: order.restaurant_id, amount_pence: order.application_fee_pence, status: 'succeeded', stripe_ref: ref, note: `${order.commission_bps / 100}% ${order.fulfilment} commission${order.service_fee_pence ? ` + ${fmt(order.service_fee_pence)} service fee` : ''}` });
   if (order.promo_code) {
     const promo = await db.get<Promotion>('promotions', { code: order.promo_code });
     if (promo) await db.update('promotions', { id: promo.id }, { used_count: promo.used_count + 1 });
@@ -176,7 +181,7 @@ export async function updateOrderStatus(orderId: string, to: OrderStatus, actor:
     status: to, rejection_reason: to === 'rejected' ? opts.reason!.trim().slice(0, 300) : order.rejection_reason, history: [...order.history, { status: to, at: now, by: actor.userId }],
   });
   if (!updated) throw new OrderError('Order was updated by someone else — refresh and try again');
-  if (to === 'rejected') await refundOrder(order.id, order.total_pence - order.refunded_pence, 'Restaurant rejected the order', actor.userId);
+  if (to === 'rejected') await refundOrder(order.id, order.total_pence - order.refunded_pence, 'Restaurant rejected the order', actor.userId, { kind: 'declined' });
   const customer = await db.get<Profile>('profiles', { id: order.customer_id });
   const msg: Partial<Record<OrderStatus, string>> = {
     accepted: `The restaurant has accepted your order and expects it to be ready in about ${updated.ready_in_minutes ?? 30} minutes.`,
@@ -190,38 +195,88 @@ export async function updateOrderStatus(orderId: string, to: OrderStatus, actor:
   return updated;
 }
 
-/** Refund (full or partial). Reverses the restaurant transfer and refunds the proportional application fee. */
-export async function refundOrder(orderId: string, amountPence: number, reason: string, actorId: string | null): Promise<Order> {
+export type RefundKind = 'full' | 'partial' | 'declined' | 'customer_cancel' | 'timeout';
+
+/**
+ * Refund (full or partial) with an EXACT allocation between the customer's food, delivery, tip and the FeastQuarter service fee.
+ *  - Refunded from the platform; then only the RESTAURANT'S share is reversed from its transfer (never the service fee, never the commission handed back).
+ *  - Restaurant declined / timed out / could not fulfil => everything incl. the 99p is refunded (amount == remaining refunds all).
+ *  - Customer-requested cancellation => follows the `service_fee_refund_on_customer_cancel` setting.
+ *  - A partial amount is applied to food, then delivery, then tip; the service fee only with `includeServiceFee`. Commission shrinks with food.
+ * Every refund writes an auditable order_refunds row.
+ */
+export async function refundOrder(orderId: string, amountPence: number, reason: string, actorId: string | null, opts: { kind?: RefundKind; includeServiceFee?: boolean } = {}): Promise<Order> {
   const db = await getDb();
   const order = await db.get<Order>('orders', { id: orderId });
   if (!order) throw new OrderError('Order not found');
   if (order.payment_status === 'unpaid' || order.payment_status === 'failed') throw new OrderError('Order has not been paid');
   const remaining = order.total_pence - order.refunded_pence;
-  if (amountPence <= 0 || amountPence > remaining) throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`);
+  let kind: RefundKind = opts.kind ?? (amountPence === remaining ? 'full' : 'partial');
+  let b;
+  try {
+    if (kind === 'customer_cancel') {
+      const settings = await getSettings();
+      b = allocateRefund(order, { mode: settings.service_fee_refund_on_customer_cancel ? 'all' : 'all_but_service_fee' });
+    } else if (amountPence === remaining || kind === 'declined' || kind === 'timeout') {
+      b = allocateRefund(order, { mode: 'all' });
+    } else {
+      b = allocateRefund(order, { mode: 'amount', amountPence, includeServiceFee: opts.includeServiceFee });
+    }
+  } catch { throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`); }
+  if (b.amount_pence <= 0 || b.amount_pence > remaining || (kind !== 'customer_cancel' && (amountPence <= 0 || amountPence > remaining))) throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`);
+  const amount = b.amount_pence;
   let ref = `re_demo_${Date.now()}`;
-  if (order.stripe_payment_intent_id && !order.stripe_payment_intent_id.startsWith('pi_demo') && !demoPaymentsEnabled()) {
-    const r = await getStripe().refunds.create({
-      payment_intent: order.stripe_payment_intent_id, amount: amountPence, reverse_transfer: true, refund_application_fee: true,
-      metadata: { order_id: order.id, reason: reason.slice(0, 200) },
-    }, { idempotencyKey: `refund:${order.id}:${order.refunded_pence}:${amountPence}` });
+  let reversalId: string | null = null, reversalError: string | null = null, transferId = order.stripe_transfer_id;
+  const live = !!order.stripe_payment_intent_id && !order.stripe_payment_intent_id.startsWith('pi_demo') && !demoPaymentsEnabled();
+  if (live) {
+    const stripe = getStripe();
+    const key = `refund:${order.id}:${order.refunded_pence}:${amount}`;
+    // 1. Refund the customer from the platform balance (no automatic proportional reversal: we reverse the exact restaurant share below).
+    const r = await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id!, amount, metadata: { order_id: order.id, reason: reason.slice(0, 200), service_fee_pence: String(b.service_fee_pence), restaurant_share_pence: String(b.restaurant_share_pence) } }, { idempotencyKey: key });
     ref = r.id;
+    // 2. Pull back only the restaurant's share of the transfer. If that fails (e.g. insufficient connected balance) the refund still stands and the shortfall is flagged for recovery.
+    if (b.restaurant_share_pence > 0) {
+      try {
+        if (!transferId) {
+          const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id!, { expand: ['latest_charge'] });
+          const ch = pi.latest_charge as { transfer?: string | null } | null;
+          transferId = ch && typeof ch === 'object' ? ch.transfer ?? null : null;
+        }
+        if (!transferId) throw new Error('No transfer found for this payment');
+        const rev = await stripe.transfers.createReversal(transferId, { amount: b.restaurant_share_pence, metadata: { order_id: order.id, refund_id: r.id } }, { idempotencyKey: `${key}:reversal` });
+        reversalId = rev.id;
+      } catch (e) { reversalError = (e as Error).message.slice(0, 300); }
+    }
   }
-  const refunded = order.refunded_pence + amountPence;
-  const [u] = await db.update<Order>('orders', { id: order.id }, { refunded_pence: refunded, payment_status: refunded >= order.total_pence ? 'refunded' : 'partially_refunded' });
-  await db.insert('transactions', { kind: 'refund', order_id: order.id, user_id: order.customer_id, restaurant_id: order.restaurant_id, amount_pence: -amountPence, status: 'succeeded', stripe_ref: ref, note: `${reason}${actorId ? ` (by ${actorId})` : ''}` });
+  const refunded = order.refunded_pence + amount;
+  const restaurantBorne = reversalError ? 0 : b.restaurant_share_pence;
+  const [u] = await db.update<Order>('orders', { id: order.id }, {
+    refunded_pence: refunded, payment_status: refunded >= order.total_pence ? 'refunded' : 'partially_refunded',
+    refunded_food_pence: (order.refunded_food_pence ?? 0) + b.food_pence, refunded_delivery_pence: (order.refunded_delivery_pence ?? 0) + b.delivery_pence,
+    refunded_tip_pence: (order.refunded_tip_pence ?? 0) + b.tip_pence, refunded_service_fee_pence: (order.refunded_service_fee_pence ?? 0) + b.service_fee_pence,
+    commission_refunded_pence: (order.commission_refunded_pence ?? 0) + b.commission_returned_pence,
+    restaurant_refunded_pence: (order.restaurant_refunded_pence ?? 0) + restaurantBorne,
+    stripe_transfer_id: transferId ?? null,
+  });
+  await db.insert('order_refunds', {
+    order_id: order.id, kind, amount_pence: amount, food_pence: b.food_pence, delivery_pence: b.delivery_pence, tip_pence: b.tip_pence, service_fee_pence: b.service_fee_pence,
+    commission_returned_pence: b.commission_returned_pence, restaurant_share_pence: b.restaurant_share_pence, platform_share_pence: b.platform_share_pence,
+    reason: reason.slice(0, 300), actor_id: actorId, stripe_refund_id: live ? ref : null, stripe_reversal_id: reversalId, reversal_error: reversalError,
+  });
+  await db.insert('transactions', { kind: 'refund', order_id: order.id, user_id: order.customer_id, restaurant_id: order.restaurant_id, amount_pence: -amount, status: 'succeeded', stripe_ref: ref, note: `${reason}${actorId ? ` (by ${actorId})` : ''}${b.service_fee_pence ? ` · incl. ${fmt(b.service_fee_pence)} service fee` : ''}${reversalError ? ' · RESTAURANT REVERSAL FAILED — needs recovery' : ''}` });
   const c = await db.get<Profile>('profiles', { id: order.customer_id });
-  await notify({ kind: 'refund', to: c?.email, subject: `Refund for order ${order.reference}`, body: `We've refunded ${fmt(amountPence)} to your original payment method. It can take 5–10 working days to appear.` });
+  const parts = [b.food_pence && `food ${fmt(b.food_pence)}`, b.delivery_pence && `delivery ${fmt(b.delivery_pence)}`, b.tip_pence && `tip ${fmt(b.tip_pence)}`, b.service_fee_pence && `service fee ${fmt(b.service_fee_pence)}`].filter(Boolean).join(', ');
+  await notify({ kind: 'refund', to: c?.email, subject: `Refund for order ${order.reference}`, body: `We've refunded ${fmt(amount)} (${parts}) to your original payment method. It can take 5–10 working days to appear.` });
   return u;
 }
-
-/** Reconcile refunds issued directly in the Stripe dashboard (charge.refunded webhook). */
 export async function reconcileRefund(paymentIntentId: string, totalRefundedPence: number, ref: string) {
   const db = await getDb();
   const order = await db.get<Order>('orders', { stripe_payment_intent_id: paymentIntentId });
   if (!order || totalRefundedPence <= order.refunded_pence) return;
   const delta = totalRefundedPence - order.refunded_pence;
   await db.update('orders', { id: order.id }, { refunded_pence: totalRefundedPence, payment_status: totalRefundedPence >= order.total_pence ? 'refunded' : 'partially_refunded' });
-  await db.insert('transactions', { kind: 'refund', order_id: order.id, user_id: order.customer_id, restaurant_id: order.restaurant_id, amount_pence: -delta, status: 'succeeded', stripe_ref: ref, note: 'Refund issued in Stripe' });
+  await db.insert('order_refunds', { order_id: order.id, kind: 'external', amount_pence: delta, food_pence: 0, delivery_pence: 0, tip_pence: 0, service_fee_pence: 0, commission_returned_pence: 0, restaurant_share_pence: 0, platform_share_pence: delta, reason: 'Refund issued directly in Stripe — not allocated; review in Stripe', actor_id: null, stripe_refund_id: ref, stripe_reversal_id: null, reversal_error: null });
+  await db.insert('transactions', { kind: 'refund', order_id: order.id, user_id: order.customer_id, restaurant_id: order.restaurant_id, amount_pence: -delta, status: 'succeeded', stripe_ref: ref, note: 'Refund issued in Stripe (unallocated)' });
 }
 
 export const listOrdersFor = async (where: Record<string, unknown>, limit = 100) =>

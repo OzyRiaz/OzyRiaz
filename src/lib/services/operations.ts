@@ -38,7 +38,7 @@ export async function processUnansweredOrders(now = new Date()) {
       const reason = 'The restaurant did not respond in time';
       const [claimed] = await db.update<Order>('orders', { id: o.id, status: 'awaiting_restaurant' }, { status: 'rejected', rejection_reason: reason, history: [...o.history, { status: 'rejected', at: now.toISOString(), by: 'system:timeout' }] });
       if (!claimed) continue; // someone answered at the last moment
-      await refundOrder(o.id, o.total_pence - o.refunded_pence, reason, null);
+      await refundOrder(o.id, o.total_pence - o.refunded_pence, reason, null, { kind: 'timeout' });
       if (process.env.ORDER_TIMEOUT_GOES_OFFLINE !== 'false') await db.update('restaurants', { id: r.id }, { accepting_orders: false });
       const c = await db.get<Profile>('profiles', { id: o.customer_id });
       await notify({ kind: 'order_timeout_customer', to: c?.email, subject: `Order ${o.reference} could not be accepted`, body: `Sorry — ${r.name} didn't respond in time, so your order was cancelled and you've been refunded ${fmt(o.total_pence)} in full. Please try another restaurant.` });

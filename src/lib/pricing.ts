@@ -68,6 +68,8 @@ export interface Totals {
   commission_bps: number;
   commission_pence: number;
   commission_vat_pence: number;
+  service_fee_pence: number;
+  service_fee_vat_pence: number;
   application_fee_pence: number;
   restaurant_net_pence: number;
 }
@@ -79,9 +81,16 @@ export interface Totals {
  *  - exclusive: VAT is added on top of the fee, so the restaurant allocation falls by the VAT amount.
  */
 export function commissionVat(feePence: number, s: Pick<PlatformSettings, 'platform_vat_registered' | 'commission_vat_mode' | 'vat_rate_bps'>): { vat: number; extra: number } {
-  if (!s.platform_vat_registered || s.commission_vat_mode === 'none' || feePence <= 0) return { vat: 0, extra: 0 };
-  if (s.commission_vat_mode === 'inclusive') return { vat: Math.round((feePence * s.vat_rate_bps) / (10000 + s.vat_rate_bps)), extra: 0 };
-  const vat = bps(feePence, s.vat_rate_bps);
+  return vatOn(feePence, s.platform_vat_registered, s.commission_vat_mode, s.vat_rate_bps);
+}
+/** Same plumbing for the customer service fee. 'exclusive' adds VAT ON TOP of the 99p (a price increase) — only with explicit approval. */
+export function serviceFeeVat(feePence: number, s: Pick<PlatformSettings, 'platform_vat_registered' | 'service_fee_vat_mode' | 'vat_rate_bps'>): { vat: number; extra: number } {
+  return vatOn(feePence, s.platform_vat_registered, s.service_fee_vat_mode ?? 'none', s.vat_rate_bps);
+}
+function vatOn(amount: number, registered: boolean, mode: 'none' | 'inclusive' | 'exclusive', rateBps: number): { vat: number; extra: number } {
+  if (!registered || mode === 'none' || amount <= 0) return { vat: 0, extra: 0 };
+  if (mode === 'inclusive') return { vat: Math.round((amount * rateBps) / (10000 + rateBps)), extra: 0 };
+  const vat = bps(amount, rateBps);
   return { vat, extra: vat };
 }
 
@@ -89,13 +98,15 @@ export function commissionVat(feePence: number, s: Pick<PlatformSettings, 'platf
  * Money model (verified against Stripe destination-charge behaviour; documented in README):
  *  - Commission = commission_bps (flat, default 10%) of the FOOD subtotal only, for delivery AND collection.
  *    It INCLUDES standard card processing: FeastQuarter pays Stripe's fee out of its own balance.
+ *  - Customer service fee = a FIXED amount (default 99p) on every order, delivery AND collection. It is paid by the customer,
+ *    belongs to FeastQuarter, is included in the checkout total, is NEVER commissionable and NEVER reaches the restaurant.
  *  - Delivery fees and tips are NEVER commissionable. They go to the restaurant.
  *  - Restaurant-funded discounts reduce the commission base (commission is on food actually charged).
  *  - Platform-funded discounts come out of FeastQuarter's commission and can never exceed it
  *    (a Stripe application fee cannot be negative); any excess is not applied.
- *  - Customer total = food + delivery fee + tip - discounts.
- *  - Stripe application_fee_amount = commission - platform-funded discount (+ VAT if exclusive mode).
- *  - Restaurant allocation = total - application fee.
+ *  - Customer total = food + delivery fee + tip + service fee - discounts.
+ *  - Stripe application_fee_amount = (commission - platform-funded discount) + service fee (+ VAT if an exclusive mode is configured).
+ *  - Restaurant allocation = total - application fee  (= food + delivery + tip - discounts - commission; the service fee never reaches it).
  * All values are integer pence computed server-side. The rate in force is stored on each order.
  */
 export function computeTotals(args: {
@@ -116,8 +127,11 @@ export function computeTotals(args: {
   const applied = restaurantFunded + platformFunded;
   const feeCollected = commission - platformFunded;
   const { vat, extra } = commissionVat(feeCollected, settings);
-  const total = subtotal + fee + tip - applied;
-  const application_fee_pence = feeCollected + extra;
+  const serviceFee = Math.max(0, Math.trunc(settings.customer_service_fee_pence ?? 0));
+  const sv = serviceFeeVat(serviceFee, settings);
+  const serviceGross = serviceFee + sv.extra; // what the customer is charged for the service fee (VAT, if any, is inside this figure)
+  const total = subtotal + fee + tip + serviceGross - applied;
+  const application_fee_pence = feeCollected + extra + serviceGross;
   return {
     subtotal_pence: subtotal,
     delivery_fee_pence: fee,
@@ -131,6 +145,8 @@ export function computeTotals(args: {
     commission_bps: rate,
     commission_pence: commission,
     commission_vat_pence: vat,
+    service_fee_pence: serviceGross,
+    service_fee_vat_pence: sv.vat,
     application_fee_pence,
     restaurant_net_pence: total - application_fee_pence,
   };
