@@ -26,7 +26,7 @@ export default async function Success({ searchParams }: { searchParams: Promise<
         {paid ? <CheckCircle2 className="mx-auto text-ok" size={52} /> : <Clock className="mx-auto animate-pulse text-gold-600" size={52} />}
         <h1 className="mt-4 font-display text-3xl font-semibold text-navy">{paid ? 'Order placed — thank you!' : 'Confirming your payment…'}</h1>
         <p className="mt-2 text-muted">{paid ? `Order ${o.reference} has been sent to the restaurant.` : `We're waiting for confirmation from our payment provider for order ${o.reference}. This page updates automatically — please don't pay twice.`}</p>
-        <div className="mt-8 text-left"><OrderTracker status={o.status} fulfilment={o.fulfilment} live /></div>
+        <div className="mt-8 text-left"><OrderTracker status={o.status} fulfilment={o.fulfilment} live={!paid} /></div>
         <div className="mt-8"><LinkButton href={`/orders/${o.id}`} variant="primary">View order & receipt</LinkButton></div>
       </Card>
     </Container>
