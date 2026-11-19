@@ -6,6 +6,7 @@ import { activateMembership, endMembership } from './membership';
 import { notify } from './notify';
 import { markOrderPaid, markPaymentFailed, reconcileRefund } from './orders';
 import { recordStripeFeeForPaymentIntent } from './reconcile';
+import { recordPayoutEvent } from './payouts';
 
 const periodEnd = (sub: any): Date | null => {
   const s = sub?.items?.data?.[0]?.current_period_end ?? sub?.current_period_end;
@@ -108,9 +109,24 @@ async function handle(event: Stripe.Event) {
       const r = await db.get<Restaurant>('restaurants', { stripe_account_id: a.id });
       if (!r) return;
       await db.update('restaurants', { id: r.id }, { stripe_details_submitted: a.details_submitted, stripe_charges_enabled: a.charges_enabled, stripe_payouts_enabled: a.payouts_enabled });
+      const due = a.requirements?.currently_due ?? [];
+      if ((a.requirements?.disabled_reason || due.length) && (r.stripe_charges_enabled || a.details_submitted)) {
+        const recent = (await db.select<{ created_at: string }>('notifications', { kind: 'restaurant_verification_issue', to_email: r.email ?? '' })).some((n) => Date.now() - new Date(n.created_at).getTime() < 864e5);
+        if (!recent) await notify({ kind: 'restaurant_verification_issue', to: r.email, subject: 'Action needed: Stripe account verification', body: `Stripe needs more information for ${r.name}${a.requirements?.disabled_reason ? ` (${a.requirements.disabled_reason})` : ''}. Open Dashboard → Payments → Update Stripe details to resolve it so you can keep taking orders.` });
+      }
       if (a.charges_enabled && !r.stripe_charges_enabled) {
         await notify({ kind: 'restaurant_onboarding', to: r.email, subject: 'Your FeastQuarter payments are enabled', body: `${r.name} can now take paid orders on FeastQuarter. Payouts: ${a.payouts_enabled ? 'enabled' : 'pending Stripe verification'}.` });
       }
+      return;
+    }
+    case 'payout.created':
+    case 'payout.updated':
+    case 'payout.paid':
+    case 'payout.failed':
+    case 'payout.canceled': {
+      // Connect events carry the connected account id in event.account.
+      const acct = (event as unknown as { account?: string }).account;
+      if (acct) await recordPayoutEvent(acct, event.data.object as Stripe.Payout, event.type);
       return;
     }
     case 'charge.succeeded':

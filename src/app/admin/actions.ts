@@ -1,5 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/session';
 import { getDb, DuplicateError } from '@/lib/db';
@@ -7,6 +8,7 @@ import type { FormState } from '@/lib/form';
 import { parsePounds } from '@/lib/money';
 import { notify } from '@/lib/services/notify';
 import { reconcileStripeFees } from '@/lib/services/reconcile';
+import { setWeeklyPayouts } from '@/lib/services/payouts';
 import { applySettingsChange, SettingsError } from '@/lib/services/settings';
 import { OrderError, refundOrder } from '@/lib/services/orders';
 import type { Profile, Restaurant } from '@/lib/types';
@@ -17,6 +19,11 @@ export async function restaurantStatusAction(fd: FormData) {
   const { db } = await admin();
   const to = String(fd.get('to'));
   if (!['approved', 'rejected', 'suspended', 'pending'].includes(to)) return;
+  if (to === 'approved') {
+    const cand = await db.get<Restaurant>('restaurants', { id: String(fd.get('id')) });
+    // Verification gate: real (non-demo) restaurants need legal + food-business details on file before approval.
+    if (cand && !cand.is_demo && (!cand.legal_name || !cand.food_business_reg)) redirect('/admin/restaurants?error=' + encodeURIComponent(`${cand.name} cannot be approved yet: legal business name and food business registration are missing.`));
+  }
   const [r] = await db.update<Restaurant>('restaurants', { id: String(fd.get('id')) }, { status: to });
   if (r && (to === 'approved' || to === 'rejected')) await notify({ kind: 'restaurant_onboarding', to: r.email, subject: to === 'approved' ? 'Welcome to FeastQuarter — you’re approved' : 'Your FeastQuarter application', body: to === 'approved' ? `${r.name} is approved. Next: complete Stripe onboarding in your dashboard (Payments) so you can take orders.` : `Unfortunately we can't approve ${r.name} at this time. Contact support if you'd like to discuss this.` });
   revalidatePath('/admin/restaurants');
@@ -106,4 +113,12 @@ export async function reconcileFeesAction(): Promise<void> {
   await admin();
   await reconcileStripeFees();
   revalidatePath('/admin/finance'); revalidatePath('/admin');
+}
+
+export async function weeklyPayoutsAction(fd: FormData): Promise<void> {
+  const { db } = await admin();
+  const r = await db.get<Restaurant>('restaurants', { id: String(fd.get('id')) });
+  if (!r) return;
+  try { await setWeeklyPayouts(r); } catch { /* surfaced in Stripe/logs; admins can retry */ }
+  revalidatePath('/admin/restaurants');
 }

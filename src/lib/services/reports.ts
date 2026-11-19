@@ -35,14 +35,14 @@ export async function platformStats(range?: { from?: Date; to?: Date }): Promise
   };
 }
 
-export interface RestaurantEarnings { orders: number; gross_pence: number; commission_pence: number; refunded_pence: number; net_pence: number }
+export interface RestaurantEarnings { orders: number; gross_pence: number; commission_pence: number; refunded_pence: number; net_pence: number; food_sales_pence: number; delivery_pence: number; tips_pence: number }
 export async function restaurantEarnings(restaurantId: string): Promise<{ summary: RestaurantEarnings; orders: Order[] }> {
   const orders = (await (await getDb()).select<Order>('orders', { restaurant_id: restaurantId }, { order: ['created_at', 'desc'] })).filter((o) => paidStates.has(o.payment_status));
   const summary = orders.reduce<RestaurantEarnings>((s, o) => {
     const kept = o.total_pence - o.refunded_pence;
     const fee = net(o);
-    return { orders: s.orders + 1, gross_pence: s.gross_pence + o.total_pence, commission_pence: s.commission_pence + fee, refunded_pence: s.refunded_pence + o.refunded_pence, net_pence: s.net_pence + kept - fee };
-  }, { orders: 0, gross_pence: 0, commission_pence: 0, refunded_pence: 0, net_pence: 0 });
+    return { orders: s.orders + 1, gross_pence: s.gross_pence + o.total_pence, commission_pence: s.commission_pence + fee, refunded_pence: s.refunded_pence + o.refunded_pence, net_pence: s.net_pence + kept - fee, food_sales_pence: s.food_sales_pence + o.subtotal_pence - o.discount_funded_by_restaurant_pence, delivery_pence: s.delivery_pence + o.delivery_fee_pence, tips_pence: s.tips_pence + (o.tip_pence ?? 0) };
+  }, { orders: 0, gross_pence: 0, commission_pence: 0, refunded_pence: 0, net_pence: 0, food_sales_pence: 0, delivery_pence: 0, tips_pence: 0 });
   return { summary, orders };
 }
 

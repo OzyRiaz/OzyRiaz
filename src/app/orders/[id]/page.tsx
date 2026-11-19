@@ -7,7 +7,7 @@ import { Badge, Card, Container, Notice } from '@/components/ui';
 import { requireSession } from '@/lib/auth/session';
 import { getDb } from '@/lib/db';
 import { fmt } from '@/lib/money';
-import { ACTIVE, STATUS_LABEL } from '@/lib/order-state';
+import { ACTIVE, labelFor } from '@/lib/order-state';
 import { createPaymentSession } from '@/lib/services/orders';
 import type { Order, Restaurant } from '@/lib/types';
 export const metadata: Metadata = { title: 'Order' };
@@ -33,7 +33,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     <Container className="max-w-3xl py-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><p className="text-sm text-muted">Order {o.reference}</p><h1 className="font-display text-3xl font-semibold text-navy">{r.name}</h1></div>
-        <div className="flex items-center gap-2"><Badge tone={o.status === 'completed' ? 'green' : ['rejected', 'cancelled', 'payment_failed'].includes(o.status) ? 'red' : 'gold'}>{STATUS_LABEL[o.status]}</Badge><PrintButton /></div>
+        <div className="flex items-center gap-2"><Badge tone={o.status === 'completed' ? 'green' : ['rejected', 'cancelled', 'payment_failed'].includes(o.status) ? 'red' : 'gold'}>{labelFor(o.status, o.fulfilment)}</Badge><PrintButton /></div>
       </div>
       <div className="mt-5 space-y-4">
         {o.status === 'rejected' && <Notice tone="red">The restaurant couldn&apos;t accept this order{o.rejection_reason ? `: ${o.rejection_reason}` : ''}. You&apos;ve been refunded in full ({fmt(o.refunded_pence)}); it can take 5–10 working days to arrive.</Notice>}
@@ -42,6 +42,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         {o.refunded_pence > 0 && o.status !== 'rejected' && <Notice tone="green">Refunded {fmt(o.refunded_pence)}.</Notice>}
         {o.payment_status === 'disputed' && <Notice tone="gold">A payment dispute is open on this order.</Notice>}
         {ACTIVE.includes(o.status) || o.status === 'completed' ? <Card className="p-5"><OrderTracker status={o.status} fulfilment={o.fulfilment} live={ACTIVE.includes(o.status)} /></Card> : null}
+        {['accepted', 'preparing'].includes(o.status) && o.ready_in_minutes && <Notice tone="navy">The restaurant expects your order to be ready in about <strong>{o.ready_in_minutes} minutes</strong> from {o.accepted_at ? new Date(o.accepted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'acceptance'}.</Notice>}
         <Card className="p-5">
           <h2 className="font-display text-xl font-semibold text-navy">{o.fulfilment === 'delivery' ? 'Delivery to' : 'Collect from'}</h2>
           <p className="mt-1 text-sm text-muted">{o.fulfilment === 'delivery' && o.delivery_address ? `${o.delivery_address.line1}${o.delivery_address.line2 ? ', ' + o.delivery_address.line2 : ''}, ${o.delivery_address.city} ${o.delivery_address.postcode}` : `${r.address_line1}, ${r.postcode}${r.phone ? ' · ' + r.phone : ''}`}</p>

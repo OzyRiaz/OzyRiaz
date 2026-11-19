@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { appUrl, demoPaymentsEnabled, isDemo, PAYMENTS_OFF_MESSAGE, stripeConfigured } from '../config';
 import { DuplicateError, getDb } from '../db';
 import { fmt } from '../money';
-import { canTransition, STATUS_LABEL } from '../order-state';
+import { canTransition, labelFor, STATUS_LABEL } from '../order-state';
 import type { BasketLineInput } from '../pricing';
 import { getStripe } from '../stripe';
 import type { Fulfilment, Order, OrderStatus, Profile, Promotion, Restaurant, Session, Transaction } from '../types';
@@ -25,6 +25,8 @@ export interface CreateOrderInput {
   phone?: string | null;
   promoCode?: string | null;
   tipPence?: number | null;
+  source?: string | null; // campaign attribution (from ?src= / utm_source)
+  campaign?: string | null;
   idempotencyKey: string;
 }
 
@@ -55,7 +57,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       delivery_address: input.fulfilment === 'delivery' ? input.address : null,
       customer_note: input.note?.slice(0, 500) ?? null, contact_phone: input.phone ?? null,
       stripe_session_id: null, stripe_payment_intent_id: null, rejection_reason: null, refunded_pence: 0,
-      history: [{ status: 'pending_payment', at: now }], paid_at: null,
+      history: [{ status: 'pending_payment', at: now }], paid_at: null, stripe_fee_pence: null, ready_in_minutes: null, accepted_at: null, escalated_at: null, source: input.source ?? null, campaign: input.campaign ?? null,
     });
   } catch (e) {
     if (e instanceof DuplicateError) { // lost a race with a concurrent identical submit
@@ -157,7 +159,7 @@ export async function markPaymentFailed(orderId: string, reason: string, ref?: s
   await notify({ kind: 'payment_failed', to: c?.email, subject: `Payment failed for order ${order.reference}`, body: `Your payment for order ${order.reference} did not go through (${reason}). No food order has been sent to the restaurant. You can try again from your basket.` });
 }
 
-export async function updateOrderStatus(orderId: string, to: OrderStatus, actor: Session, opts: { reason?: string } = {}): Promise<Order> {
+export async function updateOrderStatus(orderId: string, to: OrderStatus, actor: Session, opts: { reason?: string; readyInMinutes?: number } = {}): Promise<Order> {
   const db = await getDb();
   const order = await db.get<Order>('orders', { id: orderId });
   if (!order) throw new OrderError('Order not found');
@@ -166,13 +168,24 @@ export async function updateOrderStatus(orderId: string, to: OrderStatus, actor:
   if (!canTransition(order.status, to, order.fulfilment)) throw new OrderError(`Cannot move an order from "${STATUS_LABEL[order.status]}" to "${STATUS_LABEL[to]}"`);
   if (to === 'rejected' && !opts.reason?.trim()) throw new OrderError('Please give the customer a reason');
   const now = new Date().toISOString();
+  if (opts.readyInMinutes !== undefined && (!Number.isInteger(opts.readyInMinutes) || opts.readyInMinutes < 5 || opts.readyInMinutes > 180)) throw new OrderError('Preparation time must be between 5 and 180 minutes');
+  const restaurantRow = to === 'accepted' ? await db.get<Restaurant>('restaurants', { id: order.restaurant_id }) : null;
   const [updated] = await db.update<Order>('orders', { id: order.id, status: order.status }, {
+    ...(to === 'accepted' ? { accepted_at: now, ready_in_minutes: opts.readyInMinutes ?? restaurantRow?.prep_minutes ?? 30 } : {}),
     status: to, rejection_reason: to === 'rejected' ? opts.reason!.trim().slice(0, 300) : order.rejection_reason, history: [...order.history, { status: to, at: now, by: actor.userId }],
   });
   if (!updated) throw new OrderError('Order was updated by someone else — refresh and try again');
   if (to === 'rejected') await refundOrder(order.id, order.total_pence - order.refunded_pence, 'Restaurant rejected the order', actor.userId);
   const customer = await db.get<Profile>('profiles', { id: order.customer_id });
-  await notify({ kind: 'order_status', to: customer?.email, subject: `Order ${order.reference}: ${STATUS_LABEL[to]}`, body: `Your order status is now "${STATUS_LABEL[to]}".${to === 'rejected' ? ` Reason: ${opts.reason}. You will be refunded in full.` : ''} ${appUrl()}/orders/${order.id}` });
+  const msg: Partial<Record<OrderStatus, string>> = {
+    accepted: `The restaurant has accepted your order and expects it to be ready in about ${updated.ready_in_minutes ?? 30} minutes.`,
+    preparing: 'Your order is being prepared.',
+    ready: order.fulfilment === 'collection' ? 'Your order is ready for collection.' : 'Your order is ready and will be out for delivery shortly.',
+    out_for_delivery: 'Your order is out for delivery with the restaurant\'s driver.',
+    completed: order.fulfilment === 'delivery' ? 'Your order has been delivered. Enjoy!' : 'Your order has been collected. Enjoy!',
+    rejected: `The restaurant couldn't accept your order. Reason: ${opts.reason}. You will be refunded in full.`,
+  };
+  await notify({ kind: `order_${to}`, to: customer?.email, subject: `Order ${order.reference}: ${labelFor(to, order.fulfilment)}`, body: `${msg[to] ?? `Your order status is now "${labelFor(to, order.fulfilment)}".`} Track it: ${appUrl()}/orders/${order.id}` });
   return updated;
 }
 

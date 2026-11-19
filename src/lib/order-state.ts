@@ -28,6 +28,10 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+/** Customer/restaurant-facing label: completed means Delivered (delivery) or Collected (collection). */
+export const labelFor = (s: OrderStatus, f: Fulfilment): string =>
+  s === 'completed' ? (f === 'delivery' ? 'Delivered' : 'Collected') : s === 'ready' && f === 'collection' ? 'Ready for collection' : STATUS_LABEL[s];
+
 export const customerSteps = (f: Fulfilment): OrderStatus[] =>
   f === 'delivery'
     ? ['awaiting_restaurant', 'accepted', 'preparing', 'out_for_delivery', 'completed']

@@ -12,6 +12,7 @@ import { parseOptions } from '@/lib/menu-options';
 import { parsePostcode } from '@/lib/postcode';
 import { startConnectOnboarding } from '@/lib/services/connect';
 import { OrderError, updateOrderStatus } from '@/lib/services/orders';
+import { OperationsError, setOnline } from '@/lib/services/operations';
 import type { DeliveryArea, MenuItem, OpeningHours, OptionGroup, OrderStatus, Profile, Restaurant, RestaurantStaff } from '@/lib/types';
 
 /** Every dashboard mutation resolves the restaurant from the SESSION, never from form input. */
@@ -25,7 +26,8 @@ async function ctx() {
 export async function orderStatusAction(fd: FormData) {
   const { s } = await ctx();
   try {
-    await updateOrderStatus(String(fd.get('id')), String(fd.get('to')) as OrderStatus, s, { reason: String(fd.get('reason') ?? '') });
+    const mins = fd.get('minutes') ? Number(fd.get('minutes')) : undefined;
+    await updateOrderStatus(String(fd.get('id')), String(fd.get('to')) as OrderStatus, s, { reason: String(fd.get('reason') ?? ''), readyInMinutes: mins });
   } catch (e) {
     if (e instanceof OrderError) redirect(`/dashboard?error=${encodeURIComponent(e.message)}`);
     throw e;
@@ -157,3 +159,10 @@ export async function connectOnboardAction() {
   redirect(url);
 }
 
+
+/** Online / Offline switch. While offline, customers cannot place new orders. */
+export async function toggleOnlineAction(fd: FormData) {
+  const { rid } = await ctx();
+  try { await setOnline(rid, fd.get('online') === 'true'); } catch (e) { if (e instanceof OperationsError) redirect(`/dashboard?error=${encodeURIComponent(e.message)}`); throw e; }
+  revalidatePath('/dashboard');
+}

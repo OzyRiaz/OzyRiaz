@@ -151,6 +151,11 @@ export interface Order {
   commission_pence: number; // gross commission before platform-funded discount
   commission_vat_pence: number; // 0 while FeastQuarter is not VAT registered
   stripe_fee_pence: number | null; // ACTUAL Stripe processing fee from Stripe's balance transaction (null until reconciled)
+  ready_in_minutes: number | null; // preparation time chosen by the restaurant on acceptance
+  accepted_at: string | null;
+  escalated_at: string | null; // set when the unanswered-order reminder/escalation fired
+  source: string | null; // campaign attribution
+  campaign: string | null;
   application_fee_pence: number; // what FeastQuarter actually collects via Stripe
   restaurant_net_pence: number;
   delivery_address: { line1: string; line2?: string | null; city: string; postcode: string } | null;
