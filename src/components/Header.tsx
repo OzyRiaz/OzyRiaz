@@ -14,19 +14,19 @@ export async function Header() {
     <>
       {isDemo && <div className="bg-violet-700 px-4 py-1.5 text-center text-xs font-medium text-white">Demonstration mode — fictional restaurants, simulated payments. No real orders or charges.</div>}
       <header className="no-print sticky top-0 z-50 bg-navy text-white shadow-lg">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-4 sm:px-6">
           <Link href="/" aria-label="FeastQuarter home"><Logo light /></Link>
-          <nav aria-label="Main" className="ml-6 hidden items-center gap-1 md:flex">
-            {nav.map((n) => <Link key={n.href} href={n.href} className="rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white">{n.label}</Link>)}
+          <nav aria-label="Main" className="ml-2 hidden items-center gap-0.5 md:flex lg:ml-6 lg:gap-1">
+            {nav.map((n) => <Link key={n.href} href={n.href} className="rounded-lg px-2 py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white lg:px-3">{n.label}</Link>)}
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
             <BasketButton />
             {s ? (
-              <div className="flex items-center gap-1.5">
-                {s.role === 'admin' && <Link href="/admin" className="rounded-lg bg-gold px-3 py-1.5 text-sm font-semibold text-navy">Admin</Link>}
-                {s.role === 'restaurant' && <Link href="/dashboard" className="rounded-lg bg-gold px-3 py-1.5 text-sm font-semibold text-navy">Dashboard</Link>}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                {s.role === 'admin' && <Link href="/admin" className="rounded-lg bg-gold px-2.5 py-1.5 text-sm font-semibold text-navy sm:px-3">Admin</Link>}
+                {s.role === 'restaurant' && <Link href="/dashboard" className="rounded-lg bg-gold px-2.5 py-1.5 text-sm font-semibold text-navy sm:px-3">Dashboard</Link>}
                 <Link href="/account" className="hidden rounded-lg px-3 py-2 text-sm text-white/80 hover:bg-white/10 sm:block">{s.name.split(' ')[0]}</Link>
-                <form action={logoutAction}><button className="rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-white/10">Sign out</button></form>
+                <form action={logoutAction}><button className="rounded-lg px-2 py-2 text-sm text-white/70 hover:bg-white/10 sm:px-3">Sign out</button></form>
               </div>
             ) : (
               <>

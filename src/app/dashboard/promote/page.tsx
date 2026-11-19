@@ -20,7 +20,7 @@ export default async function Promote() {
     <div className="grid max-w-4xl gap-5 md:grid-cols-2">
       <Card className="p-6"><h2 className="font-display text-2xl font-semibold text-navy">Your ordering link & QR code</h2>
         <p className="mt-1 text-sm text-muted">Print the QR code for your window, menus and bags. Customers scan it and land on your page.</p>
-        <div className="mx-auto mt-4 w-56 rounded-xl border border-line bg-white p-2" role="img" aria-label="QR code for your FeastQuarter page" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div className="mx-auto mt-4 w-56 max-w-full rounded-xl [&>svg]:h-auto [&>svg]:w-full border border-line bg-white p-2" role="img" aria-label="QR code for your FeastQuarter page" dangerouslySetInnerHTML={{ __html: svg }} />
         <p className="mt-3 break-all rounded-lg bg-navy-100 px-3 py-2 text-xs text-navy">{url}</p>
         <div className="mt-3 flex flex-wrap gap-2"><CopyButton text={url} label="Copy link" /><a download={`feastquarter-${r.slug}-qr.svg`} href={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`} className="rounded-lg border border-navy/25 px-3 py-1.5 text-sm font-semibold text-navy hover:bg-navy-100">Download QR (SVG)</a></div>
         {r.status !== 'approved' && <div className="mt-3"><Notice tone="gold">Your page isn&apos;t live yet. The link works once your application is approved.</Notice></div>}</Card>

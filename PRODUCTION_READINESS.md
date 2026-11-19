@@ -8,7 +8,7 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 |---|---|---|
 | 1 | **Real end-to-end test in Stripe sandbox + Supabase**: onboard test restaurant → order → webhook marks paid → application fee = 10% food → accept → payout; refund (full/partial) incl. fee refund; decline→refund; dispute event; subscription off. *Never done against real Stripe in this codebase's tests (all mocked).* | Dev + you |
 | 2 | **Merge the laptop's uncommitted Stripe "Accounts v2" onboarding change** (`src/lib/services/connect.ts`) — it exists only on your laptop; commit/push it, then re-run the sandbox test. | You/laptop Claude Code |
-| 3 | **Apply migrations 0004–0006 to the live Supabase project** (additive, idempotent) and run `npm run live:check`. | You |
+| 3 | **Apply migrations 0004–0007 to the live Supabase project** (additive, idempotent) and run `npm run live:check`. | You |
 | 4 | **Legal/commercial:** solicitor-reviewed customer terms, restaurant partner agreement (commission, refunds, disputes, drivers), privacy policy, allergen position, complaints process. Current pages are **placeholders**. | Solicitor |
 | 5 | **Tax:** accountant sign-off on VAT treatment of the 10% commission and of the marketplace model (see §3). | Accountant |
 | 6 | **Business entity + business bank + Stripe account activation** (live mode, KYC/KYB, Connect platform review). Live keys need your explicit authorisation. | You |
@@ -19,9 +19,9 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 
 ## 2. Feature status
 ### ✅ Implemented and tested (automated)
-- Flat **10% commission** (delivery = collection), food-only; delivery fee & tips excluded; your £25/£3 and £25 examples; rounding; rate stored per order; admin-only, audited changes; historical orders unchanged. No joining/monthly/equipment/service/card fees in the model.
+- Flat **10% commission** (delivery = collection), food-only; delivery fee & tips excluded; your £25/£3 and £25 examples; rounding; rate stored per order; admin-only, audited changes; historical orders unchanged. No joining/monthly/equipment/card fees for restaurants. **Fixed 99p customer service fee** on delivery and collection (Examples A £28.99 / B £25.99 tested), stored per order, in the single application fee, never transferred to the restaurant, admin-configurable and audited.
 - Restaurant- vs platform-funded discounts, promo codes (incl. city-scoped), member discount only when the Plus flag is on; invariants `total = restaurant allocation + application fee`, fee ≥ 0.
-- Full/partial refunds (pro-rata commission), declined-order refunds, duplicate-webhook and duplicate-order protection, amount-mismatch refusal, failed-payment handling, dispute recording, optional transfer-reversal recovery (mocked).
+- Exact refund allocation (food/delivery/tip/service fee), restaurant-share-only transfer reversal, `order_refunds` audit trail, service-fee refund on decline/timeout/fail, configurable customer-cancel policy (all mocked Stripe), declined-order refunds, duplicate-webhook and duplicate-order protection, amount-mismatch refusal, failed-payment handling, dispute recording, optional transfer-reversal recovery (mocked).
 - Actual Stripe fee reconciliation from balance transactions (mocked), estimated-vs-actual separation, other-Stripe-costs ledger, net contribution, accountant-style breakdown (food, delivery, tips, gross, refunds, restaurant allocation, commission, VAT, processing, taxable revenue).
 - VAT configuration (`platform_vat_registered=false`, no VAT on commission while unregistered; inclusive/exclusive plumbing), rolling 12-month threshold monitor with watch/urgent/exceeded alerts.
 - FeastQuarter Plus feature flag (OFF), membership records preserved, nothing auto-cancelled.

@@ -7,22 +7,27 @@ Next.js 16 (App Router) · TypeScript · Tailwind 4 · Supabase (Postgres/Auth/S
 
 ## Launch commercial model
 - **Flat 10% commission on the food subtotal**, for delivery **and** collection. `commission_bps = 1000`.
-- The 10% **includes standard Stripe card processing**: FeastQuarter pays Stripe's fees. No separate card fee for restaurants, no customer service fee or card surcharge.
+- The 10% **includes standard Stripe card processing**: FeastQuarter pays Stripe's fees. Restaurants pay no separate card fee.
+- **Fixed 99p FeastQuarter customer service fee** on every delivery **and** collection order (`customer_service_fee_pence = 99`). Paid by the customer, included in the checkout total, shown in the basket, menu page, checkout, order page, confirmation email and refund notices. It belongs to FeastQuarter, is **never commissionable** and **never transferred to the restaurant**. No card surcharge. Plus does not waive it.
 - **Delivery fees and tips are never commissionable** and go to the restaurant.
 - No joining fee, no monthly fee, no mandatory equipment. Restaurants deliver with their own drivers (or customers collect).
 - **FeastQuarter Plus (£4.99/month) is OFF** behind a feature flag (`platform_settings.feature_plus_enabled`, Admin → Settings). Code and records are preserved; nothing is promoted or purchasable until the owner authorises it.
 
-| Example | Customer pays | Commission | Restaurant allocation | Illustrative Stripe fee* | FeastQuarter contribution* |
-|---|---|---|---|---|---|
-| Delivery: £25.00 food + £3.00 delivery | £28.00 | £2.50 | £25.50 | £0.62 | £1.88 |
-| Collection: £25.00 food | £25.00 | £2.50 | £22.50 | £0.58 | £1.92 |
+| Example | Customer pays | Commission (10% food) | Service fee | Restaurant allocation | FeastQuarter gross | Illustrative Stripe fee* | FeastQuarter contribution* |
+|---|---|---|---|---|---|---|---|
+| Delivery: £25.00 food + £3.00 delivery | £28.99 | £2.50 | £0.99 | £25.50 | £3.49 | £0.63 | £2.86 |
+| Collection: £25.00 food | £25.99 | £2.50 | £0.99 | £22.50 | £3.49 | £0.59 | £2.90 |
 
 \*1.5% + 20p is **only an example** used in tests. Real fees are read from Stripe's balance transactions (`services/reconcile.ts`). Contribution is before other Stripe Connect charges (entered in Admin → Finance), refunds, disputes, tax and running costs. Orders whose actual fee hasn't been reconciled yet are shown as **estimated** and flagged.
 
 Rules (all in `src/lib/pricing.ts`, integer pence, server-side, covered by tests):
 - The rate in force is **stored on every order**; changing it affects new orders only. Every commission/VAT/feature change is written to `settings_audit` (who, old, new, why). Admin-only.
 - Restaurant-funded discounts reduce the commission base. Platform-funded discounts/promo codes come out of FeastQuarter's commission and are capped at it (a Stripe application fee can't be negative); they're tracked separately (`discount_funded_by_platform_pence`).
-- One discount per order (the largest). Full/partial refunds reverse the transfer and refund the application fee **pro rata** (`reverse_transfer` + `refund_application_fee`).
+- One discount per order (the largest).
+- **One Stripe application fee = commission + service fee.** The 99p is its own visible Checkout line item; the Checkout session is idempotent per order so retries never add it twice. `application_fee_amount` is never transferred to the restaurant.
+- **Refunds are allocated exactly, not pro rata** (`src/lib/refunds.ts`): food → delivery → tip (→ service fee only when asked or on a full/declined refund). Stripe refunds the customer from the platform balance, then **only the restaurant's share** is pulled back with `transfers.createReversal` (`amount − service fee − commission returned`). Commission shrinks in proportion to food refunded; the last food refund returns the exact remainder (no rounding drift). Declined / timed-out / unfulfillable orders refund food + delivery + tip + 99p. Customer-requested cancellations follow the admin setting `service_fee_refund_on_customer_cancel` (default: refunded). If a reversal fails (e.g. restaurant balance too low) the customer refund still stands and the shortfall is recorded for recovery. Every refund writes an `order_refunds` audit row (CSV: Admin → Reports → Refund audit). Stripe does not return its own processing fee on refunds; FeastQuarter absorbs it.
+- Settings `customer_service_fee_pence` and `commission_bps` are admin-only, validated, audited, prospective (each order stores the fee, rate and refund components it was charged at).
+- VAT: while `platform_vat_registered=false` no VAT is added to the commission or the 99p and no VAT invoice figures are produced. Service-fee VAT mode (`none`/`inclusive`/`exclusive`) is plumbing only; `exclusive` would raise the customer price and needs explicit approval. Service-fee income counts toward the VAT-threshold monitor.
 
 ## Stripe Connect — verified against current Stripe docs
 Destination charges with `application_fee_amount` (Checkout), one Express connected account per restaurant.
@@ -61,7 +66,7 @@ npm test && npm run typecheck && npm run build
 Demo mode: fictional restaurants, in-memory data, simulated payment page (same server function the webhook calls). Demo restaurants are **never** listed or orderable in live mode. Phone testing: `npm run phone`.
 
 ## Going live (test mode first)
-1. **Supabase:** run `supabase/migrations/0001…0006` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
+1. **Supabase:** run `supabase/migrations/0001…0007` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
 2. **Stripe (test):** Connect enabled; keys; two webhook endpoints (above); `npm run live:check`.
 3. **Netlify:** connect the repo, set env vars from `.env.example` (incl. `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`). Scheduled functions in `netlify/functions/`.
 4. **Domain `feastquarter.co.uk`** is intended but not assumed owned: set `NEXT_PUBLIC_APP_URL`, Supabase Auth URLs, Stripe webhook URLs and `EMAIL_FROM` after it is connected.
