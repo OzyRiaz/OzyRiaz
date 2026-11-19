@@ -34,7 +34,8 @@ export default async function RestaurantPage({ params, searchParams }: { params:
   const [menu, areas] = await Promise.all([getMenu(r.id), (await getDb()).select<DeliveryArea>('delivery_areas', { restaurant_id: r.id })]);
   const { availability, area } = availabilityFor(r, areas, postcode);
   const open = isOpenNow(r.opening_hours);
-  const plusOn = (await getSettings()).feature_plus_enabled;
+  const siteSettings = await getSettings();
+  const plusOn = siteSettings.feature_plus_enabled;
   const offline = r.accepting_orders === false;
   const orderable = r.status === 'approved' && r.stripe_charges_enabled && availability !== 'unavailable' && !offline && (!r.is_demo || isDemo);
   return (
@@ -69,6 +70,7 @@ export default async function RestaurantPage({ params, searchParams }: { params:
                 <li>{r.collection_enabled ? 'Collection available' : 'No collection'}{r.min_order_pence ? ` · min order ${fmt(r.min_order_pence)}` : ''}</li>
               </ul>
               <p className="mt-2 text-xs text-muted">Delivered by the restaurant&apos;s own drivers.</p>
+              {siteSettings.customer_service_fee_pence > 0 && <p className="mt-1 text-xs text-muted">A fixed {fmt(siteSettings.customer_service_fee_pence)} FeastQuarter service fee is added at checkout on every delivery and collection order.</p>}
             </Card>
             <Card className="p-5">
               <h2 className="font-display text-lg font-semibold text-navy">Opening hours</h2>

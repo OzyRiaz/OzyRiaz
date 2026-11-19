@@ -146,9 +146,9 @@ export async function markOrderPaid(orderId: string, p: { paymentIntentId?: stri
     if (promo) await db.update('promotions', { id: promo.id }, { used_count: promo.used_count + 1 });
   }
   const [customer, restaurant] = await Promise.all([db.get<Profile>('profiles', { id: order.customer_id }), db.get<Restaurant>('restaurants', { id: order.restaurant_id })]);
-  await notify({ kind: 'order_confirmation', to: customer?.email, subject: `Order ${order.reference} confirmed`, body: `Thanks ${customer?.full_name ?? ''}! Your order from ${restaurant?.name} (${fmt(order.total_pence)}) has been paid and sent to the restaurant. Track it: ${appUrl()}/orders/${order.id}` });
-  void sendSms('restaurant_new_order', restaurant?.phone, `FeastQuarter: new ${order.fulfilment} order ${order.reference} (${fmt(order.total_pence)}). Open your dashboard to accept.`);
-  await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New FeastQuarter order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence)}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
+  await notify({ kind: 'order_confirmation', to: customer?.email, subject: `Order ${order.reference} confirmed`, body: `Thanks ${customer?.full_name ?? ''}! Your order from ${restaurant?.name} (${fmt(order.total_pence)}${order.service_fee_pence ? `, including the ${fmt(order.service_fee_pence)} FeastQuarter service fee` : ''}) has been paid and sent to the restaurant. Track it: ${appUrl()}/orders/${order.id}` });
+  void sendSms('restaurant_new_order', restaurant?.phone, `FeastQuarter: new ${order.fulfilment} order ${order.reference} (${fmt(order.total_pence - (order.service_fee_pence ?? 0))}). Open your dashboard to accept.`);
+  await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New FeastQuarter order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence - (order.service_fee_pence ?? 0))}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
   return { changed: true, order: claimed[0] };
 }
 

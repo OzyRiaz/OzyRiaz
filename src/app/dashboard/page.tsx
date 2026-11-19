@@ -49,7 +49,7 @@ export default async function DashboardOrders({ searchParams }: { searchParams: 
                 <ul className="mt-3 space-y-1 text-sm">{o.lines.map((l, i) => <li key={i}><strong>{l.qty}×</strong> {l.name}{l.options.length > 0 && <span className="text-muted"> ({l.options.map((x) => x.choice).join(', ')})</span>}{l.note && <span className="block text-xs italic text-muted">“{l.note}”</span>}</li>)}</ul>
                 {o.customer_note && <p className="mt-2 rounded-lg bg-gold-100 px-2.5 py-1.5 text-xs text-[#5c430a]">Note: {o.customer_note}</p>}
                 {o.fulfilment === 'delivery' && o.delivery_address && <p className="mt-2 text-sm text-muted">📍 {o.delivery_address.line1}, {o.delivery_address.postcode}</p>}
-                <p className="mt-2 flex justify-between border-t border-line pt-2 text-sm"><span className="text-muted">Total {fmt(o.total_pence)} · you receive</span><strong className="text-navy">{fmt(o.restaurant_net_pence)}</strong></p>
+                <p className="mt-2 flex justify-between border-t border-line pt-2 text-sm"><span className="text-muted">Order value {fmt(o.total_pence - (o.service_fee_pence ?? 0))} · you receive</span><strong className="text-navy">{fmt(o.restaurant_net_pence)}</strong></p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {next.filter((n) => n !== 'rejected').map((n) => <form key={n} action={orderStatusAction} className="flex flex-1 gap-2"><input type="hidden" name="id" value={o.id} /><input type="hidden" name="to" value={n} />{n === 'accepted' && <select name="minutes" aria-label="Preparation time" defaultValue={[10, 15, 20, 30, 45, 60].reduce((a, b) => (Math.abs(b - r.prep_minutes) < Math.abs(a - r.prep_minutes) ? b : a))} className="rounded-xl border border-line bg-white px-2 text-sm">{[10, 15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}</select>}<button className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-semibold text-white active:scale-[.98]">{verb[n] ?? labelFor(n, o.fulfilment)}</button></form>)}
                   {next.includes('rejected') && (
@@ -61,7 +61,7 @@ export default async function DashboardOrders({ searchParams }: { searchParams: 
           })}
         </div>
       )}
-      {done.length > 0 && <><h2 className="pt-4 font-display text-xl font-semibold text-navy">Recent</h2><Card className="divide-y divide-line">{done.map((o) => <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span><strong className="text-navy">{o.reference}</strong> · {o.fulfilment} · {new Date(o.created_at).toLocaleDateString('en-GB')}</span><span className="flex items-center gap-2"><Badge tone={o.status === 'completed' ? 'green' : 'red'}>{labelFor(o.status, o.fulfilment)}</Badge>{fmt(o.total_pence)}</span></div>)}</Card></>}
+      {done.length > 0 && <><h2 className="pt-4 font-display text-xl font-semibold text-navy">Recent</h2><Card className="divide-y divide-line">{done.map((o) => <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"><span><strong className="text-navy">{o.reference}</strong> · {o.fulfilment} · {new Date(o.created_at).toLocaleDateString('en-GB')}</span><span className="flex items-center gap-2"><Badge tone={o.status === 'completed' ? 'green' : 'red'}>{labelFor(o.status, o.fulfilment)}</Badge>{fmt(o.total_pence - (o.service_fee_pence ?? 0))}</span></div>)}</Card></>}
     </div>
   );
 }

@@ -12,7 +12,7 @@ export const plusEnabled = async () => (await getSettings()).feature_plus_enable
 
 export class SettingsError extends Error {}
 
-const AUDITED: (keyof PlatformSettings)[] = ['commission_bps', 'platform_vat_registered', 'vat_threshold_pence', 'vat_rate_bps', 'commission_vat_mode', 'feature_plus_enabled', 'membership_price_pence', 'member_discount_funding', 'member_discount_max_percent'];
+const AUDITED: (keyof PlatformSettings)[] = ['commission_bps', 'platform_vat_registered', 'vat_threshold_pence', 'vat_rate_bps', 'commission_vat_mode', 'feature_plus_enabled', 'membership_price_pence', 'member_discount_funding', 'member_discount_max_percent', 'customer_service_fee_pence', 'service_fee_vat_mode', 'service_fee_refund_on_customer_cancel'];
 
 /**
  * Admin-only settings change. Every changed audited field is written to settings_audit (who, old, new, why).
@@ -22,8 +22,11 @@ export async function applySettingsChange(adminId: string, patch: Partial<Platfo
   const db = dbArg ?? (await getDb());
   if (patch.commission_bps !== undefined && (!Number.isInteger(patch.commission_bps) || patch.commission_bps < 0 || patch.commission_bps > 3000))
     throw new SettingsError('Commission must be a whole number of basis points between 0 and 3000 (0–30%)');
+  if (patch.customer_service_fee_pence !== undefined && (!Number.isInteger(patch.customer_service_fee_pence) || patch.customer_service_fee_pence < 0 || patch.customer_service_fee_pence > 500))
+    throw new SettingsError('The service fee must be a whole number of pence between 0 and 500 (£0–£5). It applies to NEW orders only.');
+  if (patch.service_fee_vat_mode !== undefined && !['none', 'inclusive', 'exclusive'].includes(patch.service_fee_vat_mode)) throw new SettingsError('Invalid service fee VAT mode');
   if (patch.vat_rate_bps !== undefined && (!Number.isInteger(patch.vat_rate_bps) || patch.vat_rate_bps < 0 || patch.vat_rate_bps > 3000)) throw new SettingsError('Invalid VAT rate');
-  const current = (await db.get<PlatformSettings>('platform_settings', { id: 'main' })) ?? ({ ...DEFAULT_SETTINGS } as unknown as PlatformSettings);
+  const current = { ...(DEFAULT_SETTINGS as unknown as PlatformSettings), ...((await db.get<PlatformSettings>('platform_settings', { id: 'main' })) ?? {}) };
   const changed = (Object.keys(patch) as (keyof PlatformSettings)[]).filter((k) => JSON.stringify(patch[k]) !== JSON.stringify(current[k]));
   const audited = changed.filter((k) => AUDITED.includes(k));
   if (audited.length && reason.trim().length < 3) throw new SettingsError('Please give a reason for this change (it is recorded in the audit log)');

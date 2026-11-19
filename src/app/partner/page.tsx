@@ -8,7 +8,7 @@ import { getSession } from '@/lib/auth/session';
 import { getDb, DuplicateError } from '@/lib/db';
 import type { FormState } from '@/lib/form';
 import { defaultHours } from '@/lib/hours';
-import { pctLabel } from '@/lib/money';
+import { fmt, pctLabel } from '@/lib/money';
 import { parsePostcode } from '@/lib/postcode';
 import { getSettings } from '@/lib/services/settings';
 import { notify } from '@/lib/services/notify';
@@ -61,10 +61,12 @@ export default async function Partner({ searchParams }: { searchParams: Promise<
   return (
     <Container className="max-w-3xl py-10">
       <h1 className="font-display text-4xl font-semibold text-navy">Grow your restaurant with FeastQuarter</h1>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        {[['No joining fee', 'Start taking orders at no upfront cost.'], ['No monthly fee', 'No subscription and no free-trial gimmicks.'], [`${pctLabel(settings.commission_bps)} flat`, 'Commission on food for delivery AND collection orders. Standard card processing is included — no extra card fees. Delivery charges and tips are yours.']].map(([h, t]) => <Card key={h} className="p-5"><p className="font-display text-xl font-semibold text-navy">{h}</p><p className="mt-1 text-sm text-muted">{t}</p></Card>)}
-      </div>
-      <p className="mt-4 text-sm text-muted">You keep your own drivers, delivery areas and delivery charges. Payments go straight to your own Stripe account; FeastQuarter&apos;s commission is deducted automatically. Commission applies to food, not your delivery charge.</p>
+      <Card className="mt-6 p-6">
+        <p className="font-display text-2xl font-semibold text-navy">{pctLabel(settings.commission_bps)} commission on delivery and collection orders. Standard card processing included. No joining fee or monthly subscription.</p>
+        <p className="mt-2 text-sm text-muted">Commission applies to food only — your delivery charges and tips are yours.</p>
+      </Card>
+      <p className="mt-4 text-sm text-muted">Customers also pay a separate fixed {fmt(settings.customer_service_fee_pence)} FeastQuarter service fee on each order. It goes to FeastQuarter, is not deducted from your earnings and does not change what you receive. You are never charged card-processing fees on top of commission.</p>
+      <p className="mt-2 text-sm text-muted">You keep your own drivers, delivery areas and delivery charges. Payments go straight to your own Stripe account; FeastQuarter&apos;s commission is deducted automatically. Commission applies to food, not your delivery charge.</p>
       <Card className="mt-8 p-6">
         <h2 className="font-display text-2xl font-semibold text-navy">Apply to join</h2>
         {!s ? <div className="mt-3"><p className="text-sm text-muted">Create an account (or sign in) first, then return here to apply.</p><div className="mt-3 flex gap-2"><LinkButton href="/register?next=/partner">Create account</LinkButton><LinkButton href="/login?next=/partner" variant="outline">Sign in</LinkButton></div></div>

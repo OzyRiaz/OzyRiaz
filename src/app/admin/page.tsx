@@ -19,13 +19,16 @@ function Money({ b, title }: { b: Breakdown; title: string }) {
       <table className="mt-2 w-full text-sm"><tbody className="divide-y divide-line">
         <tr><td colSpan={2} className="pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">Customer money — passes through to restaurants</td></tr>
         {row('Food sales', fmt(b.food_sales_pence))}{row('Delivery charges', fmt(b.delivery_charges_pence))}{row('Tips', fmt(b.tips_pence))}
-        {row('Gross customer payments', fmt(b.gross_customer_payments_pence), 'Not FeastQuarter revenue', true)}
-        {row('Refunds', `−${fmt(b.refunds_pence)}`)}
+        {row('FeastQuarter service fees charged', fmt(b.service_fees_charged_pence), 'Customer-paid 99p fees — FeastQuarter income, not restaurant money')}
+        {row('Gross customer payments', fmt(b.gross_customer_payments_pence), 'Includes service fees. Not FeastQuarter revenue', true)}
+        {row('Refunds', `−${fmt(b.refunds_pence)}`, `Food/delivery/tip ${fmt(b.refunds_food_delivery_tip_pence)} · service fee ${fmt(b.refunds_service_fee_pence)}`)}
+        {row('Orders', `${b.paid_orders}`, `${b.delivery_orders} delivery · ${b.collection_orders} collection`)}
         {row('Restaurant allocation (estimate)', fmt(b.restaurant_allocation_pence), 'Due to restaurants after commission & refunds. Confirmed only by Stripe payouts.')}
         <tr><td colSpan={2} className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted">FeastQuarter income</td></tr>
-        {row('Commission kept (net of refunds, excl. VAT)', fmt(b.platform_commission_pence))}{row('FeastQuarter Plus subscriptions', fmt(b.membership_revenue_pence))}
+        {row('Stream 1 — Commission (10% of food, net of refunds, excl. VAT)', fmt(b.platform_commission_pence))}{row('Stream 2 — Customer service fees (net of refunds, excl. VAT)', fmt(b.platform_service_fee_pence))}{row('FeastQuarter Plus subscriptions', fmt(b.membership_revenue_pence))}
         {row('Platform taxable revenue', fmt(b.platform_taxable_revenue_pence), 'The figure that counts towards the VAT threshold', true)}
         {b.platform_vat_on_commission_pence > 0 && row('VAT included in commission', fmt(b.platform_vat_on_commission_pence))}
+        {b.platform_vat_on_service_fee_pence > 0 && row('VAT included in service fees', fmt(b.platform_vat_on_service_fee_pence))}
         <tr><td colSpan={2} className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted">Costs borne by FeastQuarter</td></tr>
         {row('Stripe processing — actual', `−${fmt(b.processing_fees_actual_pence)}`, 'From Stripe balance transactions')}
         {b.orders_missing_fee_data > 0 && row(`Stripe processing — ESTIMATED (${b.orders_missing_fee_data} order${b.orders_missing_fee_data === 1 ? '' : 's'} not yet reconciled)`, `−${fmt(b.processing_fees_estimated_pence)}`, 'Illustrative 1.5% + 20p until actual fees arrive')}
@@ -50,7 +53,7 @@ export default async function AdminHome() {
         </div></section>
       <section aria-labelledby="hl"><h2 id="hl" className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">This month — headline</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat label="Gross customer payments" value={fmt(o.month.gross_customer_payments_pence)} sub="Volume — mostly belongs to restaurants" /><Stat tone="gold" label="FeastQuarter taxable revenue" value={fmt(o.month.platform_taxable_revenue_pence)} sub="Commission + subscriptions" />
+          <Stat label="Gross customer payments" value={fmt(o.month.gross_customer_payments_pence)} sub="Volume — mostly belongs to restaurants" /><Stat tone="gold" label="FeastQuarter taxable revenue" value={fmt(o.month.platform_taxable_revenue_pence)} sub="Commission + service fees + subscriptions" />
           <Stat label="Stripe processing" value={fmt(o.month.processing_fees_actual_pence + o.month.processing_fees_estimated_pence)} sub={o.month.orders_missing_fee_data ? 'includes estimates' : 'actual'} /><Stat label="Net contribution" value={fmt(o.month.net_contribution_pence)} sub="After processing & other Stripe costs" />
         </div></section>
       <div className="grid gap-4 lg:grid-cols-2"><Money b={o.month} title="This month" /><Money b={o.all_time} title="All time" /></div>

@@ -13,9 +13,9 @@ describe('launch commercial terms', () => {
   });
   it('the restaurant-facing offer states: no joining fee, no monthly fee, flat commission incl. card processing', () => {
     const partner = readFileSync('src/app/partner/page.tsx', 'utf8');
-    expect(partner).toMatch(/No joining fee/);
-    expect(partner).toMatch(/No monthly fee/);
-    expect(partner).toMatch(/Standard card processing is included/);
+    expect(partner).toMatch(/commission on delivery and collection orders\. Standard card processing included\. No joining fee or monthly subscription\./);
+    expect(partner).toMatch(/separate fixed .* FeastQuarter service fee/);
+    expect(partner).toMatch(/not deducted from your earnings/);
     expect(partner).not.toMatch(/8%|5%/);
   });
   it('old 8% / 5% commission copy is gone from the app', () => {

@@ -24,7 +24,17 @@ export default async function Settings() {
             <Field label="Commission on food (%)" hint="Flat rate for delivery AND collection. Includes standard card processing. Excludes delivery fees and tips."><Input name="commission" type="number" step="0.1" min={0} max={30} defaultValue={s.commission_bps / 100} required /></Field>
             <Field label="Reason for any change" hint="Required when you change commission, VAT or feature settings. Recorded in the audit log."><Input name="reason" maxLength={300} placeholder="e.g. launch terms agreed" /></Field>
           </div>
-          <Notice tone="navy">Changing the commission affects <strong>new orders only</strong>. Every order stores the rate it was placed at, so historical orders never change.</Notice>
+          <Notice tone="navy">Changing the commission or service fee affects <strong>new orders only</strong>. Every order stores the rate and fee it was placed at, so historical orders never change.</Notice>
+
+          <fieldset className="space-y-3 rounded-xl border border-line p-4">
+            <legend className="px-1 text-sm font-semibold text-navy">FeastQuarter customer service fee</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Fixed fee per order (£)" hint="Charged to the customer on every delivery AND collection order. Belongs to FeastQuarter, is not commissionable and never reaches the restaurant. Launch value: 0.99."><Input name="service_fee" inputMode="decimal" defaultValue={(s.customer_service_fee_pence / 100).toFixed(2)} required /></Field>
+              <Field label="VAT on the service fee (only if registered)" hint="Inclusive keeps the customer price the same. Exclusive RAISES the customer price — only with the owner's approval."><Select name="sf_vat_mode" defaultValue={s.service_fee_vat_mode}><option value="none">None</option><option value="inclusive">Inclusive</option><option value="exclusive">Exclusive</option></Select></Field>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy"><input type="checkbox" name="sf_refund_cancel" defaultChecked={s.service_fee_refund_on_customer_cancel} className="h-5 w-5 accent-[#132c39]" />Refund the service fee when the CUSTOMER cancels before the restaurant accepts</label>
+            <p className="text-xs text-muted">The service fee is always refunded when the restaurant declines, times out, or cannot fulfil the order. FeastQuarter never raises the fee or the commission automatically. Check your cancellation policy with the Consumer Contracts Regulations in mind.</p>
+          </fieldset>
 
           <fieldset className="space-y-3 rounded-xl border border-line p-4">
             <legend className="px-1 text-sm font-semibold text-navy">FeastQuarter VAT (platform)</legend>

@@ -61,8 +61,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <div className="flex justify-between"><dt>Food subtotal</dt><dd>{fmt(o.subtotal_pence)}</dd></div>
             {o.discount_pence > 0 && <div className="flex justify-between text-ok"><dt>{o.discount_label}</dt><dd>−{fmt(o.discount_pence)}</dd></div>}
             {o.delivery_fee_pence > 0 && <div className="flex justify-between"><dt>Delivery</dt><dd>{fmt(o.delivery_fee_pence)}</dd></div>}
+            {o.tip_pence > 0 && <div className="flex justify-between"><dt>Tip</dt><dd>{fmt(o.tip_pence)}</dd></div>}
+            {(o.service_fee_pence ?? 0) > 0 && <div className="flex justify-between"><dt>FeastQuarter service fee</dt><dd>{fmt(o.service_fee_pence)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-2 font-display text-lg font-semibold text-navy"><dt>Total paid</dt><dd>{fmt(o.total_pence)}</dd></div>
             {o.refunded_pence > 0 && <div className="flex justify-between"><dt>Refunded</dt><dd>−{fmt(o.refunded_pence)}</dd></div>}
+            {o.refunded_pence > 0 && (o.refunded_service_fee_pence ?? 0) > 0 && <div className="flex justify-between text-xs text-muted"><dt>&nbsp;&nbsp;of which service fee</dt><dd>−{fmt(o.refunded_service_fee_pence)}</dd></div>}
           </dl>
           <p className="mt-3 text-xs text-muted">Placed {new Date(o.created_at).toLocaleString('en-GB')}{o.paid_at ? ` · Paid ${new Date(o.paid_at).toLocaleString('en-GB')}` : ''}. Prices include any VAT the restaurant charges; this is not a VAT invoice.</p>
         </Card>

@@ -40,8 +40,9 @@ export function Summary({ res, loading }: { res: QuoteResult | null; loading: bo
       {q.discount_pence > 0 && row(q.discount_label ?? 'Discount', `−${fmt(q.discount_pence)}`, 'font-medium text-ok')}
       {q.delivery_fee_pence > 0 && row('Delivery (set by restaurant)', fmt(q.delivery_fee_pence))}
       {q.tip_pence > 0 && row('Tip (goes to the restaurant)', fmt(q.tip_pence))}
+      {q.service_fee_pence > 0 && row('FeastQuarter service fee', fmt(q.service_fee_pence))}
       <div className="flex justify-between border-t border-line pt-3 font-display text-xl font-semibold text-navy"><dt>Total</dt><dd>{fmt(q.total_pence)}</dd></div>
-      <p className="text-xs text-muted">The price you see is what you pay: no service fee and no card surcharge.</p>
+      <p className="text-xs text-muted">The total includes a fixed {fmt(q.service_fee_pence)} FeastQuarter service fee (it supports the platform and is not shared with the restaurant). No card surcharge, no hidden extras.</p>
       {q.memberHint && <p className="rounded-lg bg-gold-100 px-3 py-2 text-xs text-[#5c430a]">{q.memberHint}. <Link href="/plus" className="font-semibold underline">Learn about FeastQuarter Plus</Link></p>}
       {q.promoError && <p role="alert" className="text-xs font-medium text-danger">{q.promoError}</p>}
       {!q.open && <p className="text-xs text-danger">This restaurant is currently closed.</p>}

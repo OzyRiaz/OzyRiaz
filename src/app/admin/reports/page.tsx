@@ -6,7 +6,7 @@ import type { Notification, SupportTicket } from '@/lib/types';
 export const metadata: Metadata = { title: 'Reports — Admin' };
 export const dynamic = 'force-dynamic';
 
-const EXPORTS: [string, string][] = [['orders', 'Orders'], ['transactions', 'All transactions'], ['refunds', 'Refunds'], ['restaurants', 'Restaurants'], ['customers', 'Customers']];
+const EXPORTS: [string, string][] = [['orders', 'Orders'], ['transactions', 'All transactions'], ['refunds', 'Refunds'], ['refund-audit', 'Refund audit (breakdown)'], ['revenue-day', 'Revenue by day'], ['revenue-week', 'Revenue by week'], ['revenue-month', 'Revenue by month'], ['revenue-restaurant', 'Revenue by restaurant'], ['revenue-city', 'Revenue by city'], ['restaurants', 'Restaurants'], ['customers', 'Customers']];
 export default async function Reports() {
   const db = await getDb();
   const [notes, tickets] = await Promise.all([db.select<Notification>('notifications', {}, { order: ['created_at', 'desc'], limit: 30 }), db.select<SupportTicket>('support_tickets', {}, { order: ['created_at', 'desc'], limit: 20 })]);

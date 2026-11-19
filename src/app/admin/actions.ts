@@ -62,9 +62,12 @@ export async function saveSettingsAction(_: FormState, fd: FormData): Promise<Fo
     commission: z.coerce.number().min(0).max(30), price: z.string(), maxp: z.coerce.number().min(0).max(50), funding: z.enum(['restaurant', 'platform']),
     benefits: z.string().max(1000), reason: z.string().max(300).default(''),
     vat_threshold: z.string(), vat_rate: z.coerce.number().min(0).max(30), vat_mode: z.enum(['none', 'inclusive', 'exclusive']),
+    service_fee: z.string().default('0.99'), sf_vat_mode: z.enum(['none', 'inclusive', 'exclusive']).default('none'),
   }).safeParse(Object.fromEntries(fd));
   const price = p.success ? parsePounds(p.data.price) : null;
   const threshold = p.success ? parsePounds(p.data.vat_threshold) : null;
+  const serviceFee = p.success ? parsePounds(p.data.service_fee) : null;
+  if (p.success && serviceFee === null) return { error: 'Service fee must be an amount like 0.99' };
   if (!p.success || price === null || price < 100 || threshold === null) return { error: p.success ? 'Membership price must be at least £1.00' : 'Check the values (commission 0–30%, max member discount 0–50%)' };
   try {
     const { changed } = await applySettingsChange(s.userId, {
@@ -72,9 +75,10 @@ export async function saveSettingsAction(_: FormState, fd: FormData): Promise<Fo
       membership_benefits: p.data.benefits.split('\n').map((b) => b.trim()).filter(Boolean).slice(0, 8),
       platform_vat_registered: fd.get('vat_registered') === 'on', vat_threshold_pence: threshold, vat_rate_bps: Math.round(p.data.vat_rate * 100), commission_vat_mode: p.data.vat_mode,
       feature_plus_enabled: fd.get('plus_enabled') === 'on',
+      customer_service_fee_pence: serviceFee!, service_fee_vat_mode: p.data.sf_vat_mode, service_fee_refund_on_customer_cancel: fd.get('sf_refund_cancel') === 'on',
     }, p.data.reason);
     revalidatePath('/admin/settings');
-    return { ok: changed.length ? 'Settings saved and recorded in the audit log. Commission changes apply to NEW orders only; every existing order keeps the rate it was placed at.' : 'No changes to save.' };
+    return { ok: changed.length ? 'Settings saved and recorded in the audit log. Commission and service-fee changes apply to NEW orders only; every existing order keeps the rate and fee it was placed at.' : 'No changes to save.' };
   } catch (e) {
     if (e instanceof SettingsError) return { error: e.message };
     throw e;

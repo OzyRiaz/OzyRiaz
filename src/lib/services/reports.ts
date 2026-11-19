@@ -208,3 +208,48 @@ export async function adminOverview(now = new Date()): Promise<AdminOverview> {
   };
 }
 export type { Profile };
+
+// ---------------------------------------------------------------------------------------------------------
+// Revenue reports: two FeastQuarter income streams (commission + service fee), grouped by period / restaurant / city.
+// ---------------------------------------------------------------------------------------------------------
+export type ReportGroup = 'day' | 'week' | 'month' | 'restaurant' | 'city';
+export interface ReportRow {
+  group: string; orders: number; delivery_orders: number; collection_orders: number;
+  gmv_pence: number; food_sales_pence: number; delivery_charges_pence: number;
+  commission_pence: number; service_fee_pence: number; platform_income_pence: number;
+  refunds_pence: number; restaurant_allocation_pence: number;
+  stripe_fees_actual_pence: number; stripe_fees_estimated_pence: number; net_contribution_pence: number;
+  repeat_customers: number;
+}
+const isoWeek = (d: Date) => { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return `${t.getUTCFullYear()}-W${String(Math.ceil(((t.getTime() - y0.getTime()) / 864e5 + 1) / 7)).padStart(2, '0')}`; };
+
+export async function revenueReport(group: ReportGroup, range?: { from?: Date; to?: Date }): Promise<ReportRow[]> {
+  const db = await getDb();
+  const [allOrders, rests] = await Promise.all([db.select<Order>('orders'), db.select<Restaurant>('restaurants')]);
+  const rest = new Map(rests.map((r) => [r.id, r]));
+  const inR = (iso: string | null) => !!iso && (!range?.from || new Date(iso) >= range.from) && (!range?.to || new Date(iso) <= range.to);
+  const orders = allOrders.filter((o) => PAID.has(o.payment_status) && inR(o.paid_at));
+  const firstOrder = new Map<string, string>();
+  for (const o of allOrders.filter((x) => PAID.has(x.payment_status) && x.paid_at).sort((a, b) => a.paid_at!.localeCompare(b.paid_at!))) if (!firstOrder.has(o.customer_id)) firstOrder.set(o.customer_id, o.id);
+  const key = (o: Order) => {
+    const d = new Date(o.paid_at!);
+    if (group === 'day') return d.toISOString().slice(0, 10);
+    if (group === 'week') return isoWeek(d);
+    if (group === 'month') return d.toISOString().slice(0, 7);
+    if (group === 'restaurant') return rest.get(o.restaurant_id)?.name ?? o.restaurant_id;
+    return rest.get(o.restaurant_id)?.city_slug ?? 'unknown';
+  };
+  const map = new Map<string, ReportRow & { _c: Set<string> }>();
+  for (const o of orders) {
+    const k = key(o);
+    const r = map.get(k) ?? { group: k, orders: 0, delivery_orders: 0, collection_orders: 0, gmv_pence: 0, food_sales_pence: 0, delivery_charges_pence: 0, commission_pence: 0, service_fee_pence: 0, platform_income_pence: 0, refunds_pence: 0, restaurant_allocation_pence: 0, stripe_fees_actual_pence: 0, stripe_fees_estimated_pence: 0, net_contribution_pence: 0, repeat_customers: 0, _c: new Set<string>() };
+    const comm = Math.max(0, commissionKept(o) - (o.commission_vat_pence ?? 0)), sf = Math.max(0, serviceFeeKept(o) - (o.service_fee_vat_pence ?? 0));
+    r.orders++; if (o.fulfilment === 'delivery') r.delivery_orders++; else r.collection_orders++;
+    r.gmv_pence += o.total_pence; r.food_sales_pence += o.subtotal_pence - o.discount_funded_by_restaurant_pence; r.delivery_charges_pence += o.delivery_fee_pence;
+    r.commission_pence += comm; r.service_fee_pence += sf; r.platform_income_pence += comm + sf; r.refunds_pence += o.refunded_pence; r.restaurant_allocation_pence += restaurantDue(o);
+    if (o.stripe_fee_pence != null) r.stripe_fees_actual_pence += o.stripe_fee_pence; else r.stripe_fees_estimated_pence += estimateProcessingFee(o.total_pence);
+    if (firstOrder.get(o.customer_id) !== o.id) r._c.add(o.customer_id);
+    map.set(k, r);
+  }
+  return [...map.values()].map(({ _c, ...r }) => ({ ...r, repeat_customers: _c.size, net_contribution_pence: r.platform_income_pence - r.stripe_fees_actual_pence - r.stripe_fees_estimated_pence })).sort((a, b) => a.group.localeCompare(b.group));
+}
