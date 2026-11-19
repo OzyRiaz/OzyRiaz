@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDb } from '@/lib/db';
 import { DEMO_ACCOUNTS } from '@/lib/demo-data';
 import { allocateRefund } from '@/lib/refunds';
-import { createOrder, createPaymentSession, markOrderPaid, refundOrder, updateOrderStatus } from '@/lib/services/orders';
+import { createOrder, createPaymentSession, markOrderPaid, reconcileRefund, refundOrder, updateOrderStatus } from '@/lib/services/orders';
 import { processUnansweredOrders } from '@/lib/services/operations';
 import { breakdown, restaurantEarnings, revenueReport } from '@/lib/services/reports';
 import { applySettingsChange, getSettings, SettingsError } from '@/lib/services/settings';
@@ -172,6 +172,29 @@ describe('refund execution', () => {
     const after = await reload(b.id);
     expect(after.refunded_service_fee_pence).toBe(0);
     expect(after.refunded_pence).toBe(b.total_pence - 99);
+  });
+
+  it('RACE: Stripe\'s refund webhook arriving before refunds.create() returns is not logged a second time', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    const o = await paid('delivery', 6, 'pi_real_race');
+    const refunds = { create: vi.fn().mockImplementation(async () => { await reconcileRefund('pi_real_race', o.total_pence, 'ch_webhook'); return { id: 're_race' }; }) };
+    __setStripeForTests({ refunds, transfers: { createReversal: vi.fn().mockResolvedValue({ id: 'trr_1' }) }, paymentIntents: { retrieve: vi.fn().mockResolvedValue({ latest_charge: { transfer: 'tr_1' } }) } });
+    await refundOrder(o.id, o.total_pence, 'Restaurant rejected the order', null, { kind: 'declined' });
+    const db = await getDb();
+    expect((await db.select('order_refunds', { order_id: o.id }))).toHaveLength(1);
+    expect((await db.select<any>('transactions', { order_id: o.id, kind: 'refund' }))).toHaveLength(1);
+    expect((await reload(o.id)).refunded_pence).toBe(o.total_pence);
+  });
+
+  it('a Stripe failure releases the reservation so the refund can be retried', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    const o = await paid('collection', 6, 'pi_real_fail');
+    const create = vi.fn().mockRejectedValueOnce(new Error('stripe down')).mockResolvedValue({ id: 're_ok' });
+    __setStripeForTests({ refunds: { create }, transfers: { createReversal: vi.fn().mockResolvedValue({ id: 'trr_2' }) }, paymentIntents: { retrieve: vi.fn().mockResolvedValue({ latest_charge: { transfer: 'tr_1' } }) } });
+    await expect(refundOrder(o.id, o.total_pence, 'x', null)).rejects.toThrow(/stripe down/);
+    expect((await reload(o.id)).refunded_pence).toBe(0);
+    await refundOrder(o.id, o.total_pence, 'retry', null);
+    expect((await reload(o.id)).payment_status).toBe('refunded');
   });
 
   it('refund cannot exceed what is left (no double refund)', async () => {

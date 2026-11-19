@@ -225,15 +225,36 @@ export async function refundOrder(orderId: string, amountPence: number, reason: 
   } catch { throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`); }
   if (b.amount_pence <= 0 || b.amount_pence > remaining || (kind !== 'customer_cancel' && (amountPence <= 0 || amountPence > remaining))) throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`);
   const amount = b.amount_pence;
+  const refunded = order.refunded_pence + amount;
+  const next = {
+    refunded_pence: refunded, payment_status: refunded >= order.total_pence ? 'refunded' : 'partially_refunded',
+    refunded_food_pence: (order.refunded_food_pence ?? 0) + b.food_pence, refunded_delivery_pence: (order.refunded_delivery_pence ?? 0) + b.delivery_pence,
+    refunded_tip_pence: (order.refunded_tip_pence ?? 0) + b.tip_pence, refunded_service_fee_pence: (order.refunded_service_fee_pence ?? 0) + b.service_fee_pence,
+    commission_refunded_pence: (order.commission_refunded_pence ?? 0) + b.commission_returned_pence,
+  };
+  const before = {
+    refunded_pence: order.refunded_pence, payment_status: order.payment_status,
+    refunded_food_pence: order.refunded_food_pence ?? 0, refunded_delivery_pence: order.refunded_delivery_pence ?? 0, refunded_tip_pence: order.refunded_tip_pence ?? 0,
+    refunded_service_fee_pence: order.refunded_service_fee_pence ?? 0, commission_refunded_pence: order.commission_refunded_pence ?? 0,
+  };
+  // RESERVE the refund in our own records BEFORE calling Stripe. Stripe's refund webhook can arrive before refunds.create() returns; if the order
+  // still looked un-refunded it would be logged a second time. The conditional write also stops two concurrent refunds both passing the limit check.
+  const claimed = await db.update<Order>('orders', { id: order.id, refunded_pence: order.refunded_pence }, next);
+  if (!claimed.length) throw new OrderError('This order was just refunded or changed — refresh and check before trying again');
   let ref = `re_demo_${Date.now()}`;
   let reversalId: string | null = null, reversalError: string | null = null, transferId = order.stripe_transfer_id;
   const live = !!order.stripe_payment_intent_id && !order.stripe_payment_intent_id.startsWith('pi_demo') && !demoPaymentsEnabled();
   if (live) {
     const stripe = getStripe();
     const key = `refund:${order.id}:${order.refunded_pence}:${amount}`;
-    // 1. Refund the customer from the platform balance (no automatic proportional reversal: we reverse the exact restaurant share below).
-    const r = await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id!, amount, metadata: { order_id: order.id, reason: reason.slice(0, 200), service_fee_pence: String(b.service_fee_pence), restaurant_share_pence: String(b.restaurant_share_pence) } }, { idempotencyKey: key });
-    ref = r.id;
+    try {
+      // 1. Refund the customer from the platform balance (no automatic proportional reversal: we reverse the exact restaurant share below).
+      const r = await stripe.refunds.create({ payment_intent: order.stripe_payment_intent_id!, amount, metadata: { order_id: order.id, reason: reason.slice(0, 200), service_fee_pence: String(b.service_fee_pence), restaurant_share_pence: String(b.restaurant_share_pence) } }, { idempotencyKey: key });
+      ref = r.id;
+    } catch (e) {
+      await db.update('orders', { id: order.id }, before); // Stripe refused: release the reservation
+      throw e;
+    }
     // 2. Pull back only the restaurant's share of the transfer. If that fails (e.g. insufficient connected balance) the refund still stands and the shortfall is flagged for recovery.
     if (b.restaurant_share_pence > 0) {
       try {
@@ -243,21 +264,13 @@ export async function refundOrder(orderId: string, amountPence: number, reason: 
           transferId = ch && typeof ch === 'object' ? ch.transfer ?? null : null;
         }
         if (!transferId) throw new Error('No transfer found for this payment');
-        const rev = await stripe.transfers.createReversal(transferId, { amount: b.restaurant_share_pence, metadata: { order_id: order.id, refund_id: r.id } }, { idempotencyKey: `${key}:reversal` });
+        const rev = await stripe.transfers.createReversal(transferId, { amount: b.restaurant_share_pence, metadata: { order_id: order.id, refund_id: ref } }, { idempotencyKey: `${key}:reversal` });
         reversalId = rev.id;
       } catch (e) { reversalError = (e as Error).message.slice(0, 300); }
     }
   }
-  const refunded = order.refunded_pence + amount;
   const restaurantBorne = reversalError ? 0 : b.restaurant_share_pence;
-  const [u] = await db.update<Order>('orders', { id: order.id }, {
-    refunded_pence: refunded, payment_status: refunded >= order.total_pence ? 'refunded' : 'partially_refunded',
-    refunded_food_pence: (order.refunded_food_pence ?? 0) + b.food_pence, refunded_delivery_pence: (order.refunded_delivery_pence ?? 0) + b.delivery_pence,
-    refunded_tip_pence: (order.refunded_tip_pence ?? 0) + b.tip_pence, refunded_service_fee_pence: (order.refunded_service_fee_pence ?? 0) + b.service_fee_pence,
-    commission_refunded_pence: (order.commission_refunded_pence ?? 0) + b.commission_returned_pence,
-    restaurant_refunded_pence: (order.restaurant_refunded_pence ?? 0) + restaurantBorne,
-    stripe_transfer_id: transferId ?? null,
-  });
+  const [u] = await db.update<Order>('orders', { id: order.id }, { restaurant_refunded_pence: (order.restaurant_refunded_pence ?? 0) + restaurantBorne, stripe_transfer_id: transferId ?? null });
   await db.insert('order_refunds', {
     order_id: order.id, kind, amount_pence: amount, food_pence: b.food_pence, delivery_pence: b.delivery_pence, tip_pence: b.tip_pence, service_fee_pence: b.service_fee_pence,
     commission_returned_pence: b.commission_returned_pence, restaurant_share_pence: b.restaurant_share_pence, platform_share_pence: b.platform_share_pence,
