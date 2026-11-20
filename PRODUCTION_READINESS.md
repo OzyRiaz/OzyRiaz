@@ -14,15 +14,20 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 - A race (Stripe refund webhook logged the refund a second time) was found in this run and fixed with a regression test. The one duplicate row it created remains in the test data.
 **Not verified:**
 - Dispute/chargeback flow, payout events, weekly payout setting, subscription flow, restaurant Stripe onboarding on the final Accounts v2 code, email delivery, Netlify functions, production hosting, anything in live mode.
-- The Stripe dashboard could not be opened for the account the app's key belongs to (`acct_1UcMJW…`): it is not linked to the owner's Stripe login. The checks above were made from the app's own records, the Stripe CLI listener output and Stripe object IDs, not from the Stripe dashboard. Find out how that account was created and link it, or recreate keys from a sandbox the owner can see.
+- **Resolved 20 Nov 2026:** the Stripe dashboard problem was access, not a missing link. The app's account (`acct_1UcMJW…`, sandbox "New business") opens through the dashboard's sandbox switcher; data pages stayed blocked until the owner signed out and back in. Payments, the partial refund and the decline refund were then confirmed in Stripe's own Transactions screens (statuses Succeeded / Partial refund / Refunded; the service fee appears as its own Checkout line). The stale CLI login (403) is unrelated to the app.
 - The unexplained Stripe fee (£1.57 on £43.49, more than the illustrative 1.5% + 20p) must be explained by Stripe or your accountant before pricing is relied on.
 - Stripe's CLI login failed (403) because of the same account mismatch; the listener was run with the app's key instead. Production uses real webhook endpoints, not the CLI.
+
+**Also verified 20 Nov 2026 (Stripe sandbox `acct_1UcMJW…`, Accounts v2 code from the laptop merged into this branch):**
+- Test Kitchen onboarded end to end with the v2 account-link flow (all four checks Complete). A first attempt failed because the then-configured account was not a true sandbox ("Cannot create a v2 account link … in testmode … switch to an account created in a sandbox"); onboarding must use a real sandbox.
+- A new £50.99 order (£50.00 food + 99p service fee) was paid through the webhook, rejected by the restaurant and shown as Refunded in Stripe.
+- Opening hours are enforced in live mode: a restaurant outside its hours cannot take orders (hours 00:00–23:59 leave a one-minute gap at 23:59).
 
 ## 1. Blockers before the first five restaurants can trade
 | # | Blocker | Owner |
 |---|---|---|
 | 1 | **Real end-to-end test in Stripe sandbox + Supabase**: onboard test restaurant → order → webhook marks paid → application fee = 10% food → accept → payout; refund (full/partial) incl. fee refund; decline→refund; dispute event; subscription off. *Never done against real Stripe in this codebase's tests (all mocked).* | Dev + you |
-| 2 | **Merge the laptop's uncommitted Stripe "Accounts v2" onboarding change** (`src/lib/services/connect.ts`) — it exists only on your laptop; commit/push it, then re-run the sandbox test. | You/laptop Claude Code |
+| 2 | ~~Merge the laptop's Accounts v2 change~~ **Done 20 Nov 2026** (commit d820a9b, merged; typecheck/tests pass; onboarding re-run in a real sandbox). `tests/connect.test.ts` on the laptop is still untracked. | You/laptop Claude Code |
 | 3 | ~~Apply migrations 0004–0007~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
 | 4 | **Legal/commercial:** solicitor-reviewed customer terms, restaurant partner agreement (commission, refunds, disputes, drivers), privacy policy, allergen position, complaints process. Current pages are **placeholders**. | Solicitor |
 | 5 | **Tax:** accountant sign-off on VAT treatment of the 10% commission and of the marketplace model (see §3). | Accountant |
@@ -31,7 +36,7 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 | 8 | **Supabase backups:** free plan has no point-in-time recovery. Choose a paid plan or scheduled exports and test a restore before launch. | You |
 | 9 | **Restaurant verification process** (food business registration, hygiene rating, ID) run by a human before each approval — the app enforces that the details are on file, not that they're true. | You |
 | 10 | Replace/rotate the Supabase secret key that appeared in screenshots (Project Settings → API Keys) — `.env.local` was photographed again on 19 Nov. Owner has chosen to defer this; do it before any real data. | You |
-| 11 | Link the Stripe account behind the app's key to the owner's Stripe login (or recreate keys from a visible sandbox) so payments can be inspected in the dashboard. | You/laptop Claude Code |
+| 11 | ~~Link the Stripe account to the owner's login~~ **Done 20 Nov 2026** (see §0). Remaining: delete `sk_test_5.txt` copies (one was synced to OneDrive) and rotate/delete the older sandbox keys when convenient. | You |
 | 12 | Tip wording: tips go to the restaurant, not to drivers directly. Settle the customer-facing label and put the Employment (Allocation of Tips) Act 2023 duty in the partner agreement. | Solicitor |
 | 13 | Decide how FeastQuarter treats the Stripe fee on declined/timed-out orders (non-refundable, absorbed by FeastQuarter today). | You/accountant |
 
