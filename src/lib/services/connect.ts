@@ -3,7 +3,11 @@ import { getDb } from '../db';
 import { getStripe } from '../stripe';
 import type { Restaurant } from '../types';
 
-/** Each restaurant gets its own Stripe Express connected account (UK). */
+/**
+ * Each restaurant gets its own Stripe connected account (UK, Express dashboard) created with Accounts v2.
+ * v2 accounts still work with v1 endpoints: accounts.retrieve / createLoginLink, destination charges, and
+ * the v1 `account.updated` webhook (charges_enabled / payouts_enabled) are unchanged.
+ */
 export async function startConnectOnboarding(r: Restaurant): Promise<{ url: string }> {
   const db = await getDb();
   if (demoPaymentsEnabled()) {
@@ -14,18 +18,29 @@ export async function startConnectOnboarding(r: Restaurant): Promise<{ url: stri
   const stripe = getStripe();
   let acct = r.stripe_account_id;
   if (!acct) {
-    const a = await stripe.accounts.create({
-      type: 'express', country: 'GB', email: r.email ?? undefined,
-      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-      business_profile: { name: r.name, mcc: '5812' },
+    // Accounts v2 (POST /v2/core/accounts). Express dashboard needs the platform to collect fees and
+    // cover losses. merchant.card_payments backs `on_behalf_of`; recipient.stripe_transfers receives the
+    // destination-charge transfers.
+    const a = await stripe.v2.core.accounts.create({
+      contact_email: r.email ?? undefined,
+      display_name: r.name,
+      identity: { country: 'gb' },
+      dashboard: 'express',
+      defaults: { currency: 'gbp', locales: ['en-GB'], responsibilities: { fees_collector: 'application', losses_collector: 'application' } },
+      configuration: {
+        merchant: { mcc: '5812', capabilities: { card_payments: { requested: true } } },
+        recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+      },
       metadata: { restaurant_id: r.id },
-    }, { idempotencyKey: `acct-${r.id}` });
+    }, { idempotencyKey: `acct-v2-${r.id}` });
     acct = a.id;
     await db.update('restaurants', { id: r.id }, { stripe_account_id: acct });
   }
-  const link = await stripe.accountLinks.create({
-    account: acct, type: 'account_onboarding',
-    refresh_url: `${appUrl()}/dashboard/payments?refresh=1`, return_url: `${appUrl()}/dashboard/payments?returned=1`,
+  const link = await stripe.v2.core.accountLinks.create({
+    account: acct,
+    use_case: { type: 'account_onboarding', account_onboarding: {
+      refresh_url: `${appUrl()}/dashboard/payments?refresh=1`, return_url: `${appUrl()}/dashboard/payments?returned=1`,
+    } },
   });
   return { url: link.url };
 }
