@@ -205,7 +205,7 @@ export async function ensureDemoSeed(db: Db): Promise<void> {
     const approved = (r.status ?? 'approved') === 'approved';
     const rest = await db.insert<Restaurant>('restaurants', mk({
       id: stableId('restaurant:' + r.slug), owner_id: owner.id, slug: r.slug, name: r.name, description: r.desc, cuisines: r.cuisines, address_line1: r.line1, postcode: r.postcode,
-      city_slug: 'bradford', phone: '01274 000000', email: email, image_url: null, status: r.status ?? 'approved', is_demo: true, featured: !!r.featured,
+      city_slug: 'bradford', phone: '01274 000000', email: email, image_url: null, status: r.status ?? 'approved', is_demo: true, featured: !!r.featured, founding_partner: false, founding_partner_since: null,
       opening_hours: Object.fromEntries(['mon','tue','wed','thu','fri','sat','sun'].map((d) => [d, [{ open: '09:00', close: '23:59' }]])) as unknown as Restaurant['opening_hours'], min_order_pence: r.min, prep_minutes: r.prep, delivery_enabled: r.delivery ?? true, collection_enabled: r.collection ?? true,
       accepting_orders: true, legal_name: null, company_number: null, vat_registered: false, vat_number: null, food_business_reg: null, food_hygiene_rating: null, food_hygiene_authority: null, referred_by: null,
       member_offer: { enabled: !!r.memberPct, percent: r.memberPct ?? 0, min_spend_pence: 1500, description: 'Member-only saving on food' },

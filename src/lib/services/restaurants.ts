@@ -79,3 +79,18 @@ export async function listCuisines(): Promise<{ name: string; count: number }[]>
   for (const r of await db.select<Restaurant>('restaurants', { status: 'approved' })) for (const c of r.cuisines) map.set(c, (map.get(c) ?? 0) + 1);
   return [...map].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
+
+/**
+ * Internal record of "founding partners" (the first restaurants promised no joining fee).
+ * Admin-only (called from an admin action). Never shown to customers; it changes nothing about orders, fees or payouts.
+ */
+export async function setFoundingPartner(restaurantId: string, on: boolean): Promise<{ restaurant: Restaurant; count: number }> {
+  const db = await getDb();
+  const r = await db.get<Restaurant>('restaurants', { id: restaurantId });
+  if (!r) throw new Error('Restaurant not found');
+  const [u] = await db.update<Restaurant>('restaurants', { id: r.id }, on
+    ? { founding_partner: true, founding_partner_since: r.founding_partner_since ?? new Date().toISOString() }
+    : { founding_partner: false, founding_partner_since: null });
+  const count = (await db.select<Restaurant>('restaurants', { founding_partner: true })).filter((x) => !x.is_demo).length;
+  return { restaurant: u ?? r, count };
+}

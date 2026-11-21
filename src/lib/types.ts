@@ -56,6 +56,8 @@ export interface Restaurant {
   status: RestaurantStatus;
   is_demo: boolean;
   featured: boolean;
+  founding_partner: boolean; // one of the first restaurants promised no joining fee (internal record; not shown to customers)
+  founding_partner_since: string | null;
   opening_hours: OpeningHours;
   min_order_pence: number;
   prep_minutes: number;

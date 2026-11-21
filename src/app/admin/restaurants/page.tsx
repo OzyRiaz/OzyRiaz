@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Badge, Card, DemoBadge, Notice } from '@/components/ui';
 import { getDb } from '@/lib/db';
 import type { Restaurant } from '@/lib/types';
-import { featureAction, restaurantStatusAction, weeklyPayoutsAction } from '../actions';
+import { featureAction, foundingPartnerAction, restaurantStatusAction, weeklyPayoutsAction } from '../actions';
 export const metadata: Metadata = { title: 'Restaurants — Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -16,15 +16,17 @@ export default async function AdminRestaurants({ searchParams }: { searchParams:
     <div className="space-y-3">
       <h2 className="font-display text-2xl font-semibold text-navy">Restaurants</h2>
       {sp.error && <Notice tone="red">{sp.error}</Notice>}
+      <p className="text-sm text-muted">Founding partners (internal record, not shown to customers): <strong className="text-navy">{list.filter((r) => r.founding_partner && !r.is_demo).length}</strong></p>
       {list.map((r) => (
         <Card key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-          <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-semibold text-navy">{r.name} {r.is_demo && <DemoBadge />}<Badge tone={r.status === 'approved' ? 'green' : r.status === 'pending' ? 'gold' : 'red'}>{r.status}</Badge>{r.featured && <Badge tone="navy">Featured</Badge>}</p>
+          <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-semibold text-navy">{r.name} {r.is_demo && <DemoBadge />}<Badge tone={r.status === 'approved' ? 'green' : r.status === 'pending' ? 'gold' : 'red'}>{r.status}</Badge>{r.featured && <Badge tone="navy">Featured</Badge>}{r.founding_partner && <Badge tone="gold">Founding partner{r.founding_partner_since ? ` · since ${new Date(r.founding_partner_since).toLocaleDateString('en-GB')}` : ''}</Badge>}</p>
             <p className="text-sm text-muted">{r.cuisines.join(', ')} · {r.address_line1}, {r.postcode} · {r.email}</p>
             <p className="text-xs text-muted">Stripe: {r.stripe_charges_enabled ? 'charges on' : 'charges off'} · {r.stripe_payouts_enabled ? 'payouts on' : 'payouts off'} · {r.accepting_orders === false ? 'OFFLINE' : 'online'}</p>
             <p className="text-xs text-muted">{r.legal_name ?? 'no legal name'}{r.company_number ? ` · Co. ${r.company_number}` : ''} · food reg: {r.food_business_reg ?? '—'} · hygiene: {r.food_hygiene_rating ?? '—'}{r.food_hygiene_authority ? ` (${r.food_hygiene_authority})` : ''} · VAT: {r.vat_registered ? (r.vat_number ?? 'registered') : 'not registered'}{r.referred_by ? ` · ref: ${r.referred_by}` : ''}</p></div>
           <div className="flex flex-wrap gap-2">
             {r.status === 'pending' && <><Btn id={r.id} to="approved" label="Approve" tone="green" /><Btn id={r.id} to="rejected" label="Reject" tone="red" /></>}
             {r.status === 'approved' && <><Btn id={r.id} to="suspended" label="Suspend" tone="red" /><form action={weeklyPayoutsAction}><input type="hidden" name="id" value={r.id} /><button className="rounded-lg border border-navy/25 px-3 py-1.5 text-xs font-semibold text-navy">Weekly payouts</button></form><form action={featureAction}><input type="hidden" name="id" value={r.id} /><button className="rounded-lg border border-navy/25 px-3 py-1.5 text-xs font-semibold text-navy">{r.featured ? 'Unfeature' : 'Feature'}</button></form></>}
+            <form action={foundingPartnerAction}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="on" value={r.founding_partner ? '0' : '1'} /><button className="rounded-lg border border-navy/25 px-3 py-1.5 text-xs font-semibold text-navy">{r.founding_partner ? 'Remove founding partner' : 'Mark founding partner'}</button></form>
             {(r.status === 'suspended' || r.status === 'rejected') && <Btn id={r.id} to="approved" label="Reinstate" tone="green" />}
           </div>
         </Card>

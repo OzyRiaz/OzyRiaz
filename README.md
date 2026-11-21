@@ -66,7 +66,7 @@ npm test && npm run typecheck && npm run build
 Demo mode: fictional restaurants, in-memory data, simulated payment page (same server function the webhook calls). Demo restaurants are **never** listed or orderable in live mode. Phone testing: `npm run phone`.
 
 ## Going live (test mode first)
-1. **Supabase:** run `supabase/migrations/0001…0008` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
+1. **Supabase:** run `supabase/migrations/0001…0009` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
 2. **Stripe (test):** Connect enabled; keys; two webhook endpoints (above); `npm run live:check`.
 3. **Netlify:** connect the repo, set env vars from `.env.example` (incl. `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`). Scheduled functions in `netlify/functions/`.
 4. **Domain `feastquarter.co.uk`** is intended but not assumed owned: set `NEXT_PUBLIC_APP_URL`, Supabase Auth URLs, Stripe webhook URLs and `EMAIL_FROM` after it is connected.

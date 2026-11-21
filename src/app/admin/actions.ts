@@ -13,6 +13,7 @@ import { recoverDisputeFromRestaurant } from '@/lib/services/disputes';
 import { CityError, setCityActive, upsertCity } from '@/lib/services/cities';
 import { applySettingsChange, SettingsError } from '@/lib/services/settings';
 import { OrderError, refundOrder } from '@/lib/services/orders';
+import { setFoundingPartner } from '@/lib/services/restaurants';
 import type { Profile, Restaurant } from '@/lib/types';
 
 const admin = async () => { const s = await requireRole('admin', '/admin'); return { s, db: await getDb() }; };
@@ -34,6 +35,11 @@ export async function featureAction(fd: FormData) {
   const { db } = await admin();
   const r = await db.get<Restaurant>('restaurants', { id: String(fd.get('id')) });
   if (r) await db.update('restaurants', { id: r.id }, { featured: !r.featured });
+  revalidatePath('/admin/restaurants');
+}
+export async function foundingPartnerAction(fd: FormData) {
+  await admin();
+  await setFoundingPartner(String(fd.get('id')), fd.get('on') === '1');
   revalidatePath('/admin/restaurants');
 }
 export async function suspendUserAction(fd: FormData) {

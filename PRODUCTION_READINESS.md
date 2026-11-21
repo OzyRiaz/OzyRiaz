@@ -30,7 +30,7 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 |---|---|---|
 | 1 | **Real end-to-end test in Stripe sandbox + Supabase**: onboard test restaurant → order → webhook marks paid → application fee = 10% food → accept → payout; refund (full/partial) incl. fee refund; decline→refund; dispute event; subscription off. *Never done against real Stripe in this codebase's tests (all mocked).* | Dev + you |
 | 2 | ~~Merge the laptop's Accounts v2 change~~ **Done 20 Nov 2026** (commit d820a9b, merged; typecheck/tests pass; onboarding re-run in a real sandbox). `tests/connect.test.ts` on the laptop is still untracked. | You/laptop Claude Code |
-| 3 | ~~Apply migrations 0004–0008~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
+| 3 | ~~Apply migrations 0004–0009~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
 | 4 | **Legal/commercial:** solicitor-reviewed customer terms, restaurant partner agreement (commission, refunds, disputes, drivers), privacy policy, allergen position, complaints process. Current pages are **placeholders**. | Solicitor |
 | 5 | **Tax:** accountant sign-off on VAT treatment of the 10% commission and of the marketplace model (see §3). | Accountant |
 | 6 | **Business entity + business bank + Stripe account activation** (live mode, KYC/KYB, Connect platform review). Live keys need your explicit authorisation. | You |
