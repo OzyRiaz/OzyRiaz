@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDb } from '@/lib/db';
 import { DEMO_ACCOUNTS } from '@/lib/demo-data';
 import { allocateRefund } from '@/lib/refunds';
-import { createOrder, createPaymentSession, markOrderPaid, reconcileRefund, refundOrder, updateOrderStatus } from '@/lib/services/orders';
+import { cancelOrderByCustomer, createOrder, createPaymentSession, markOrderPaid, reconcileRefund, refundOrder, updateOrderStatus } from '@/lib/services/orders';
 import { processUnansweredOrders } from '@/lib/services/operations';
 import { breakdown, restaurantEarnings, revenueReport } from '@/lib/services/reports';
 import { applySettingsChange, getSettings, SettingsError } from '@/lib/services/settings';
@@ -201,6 +201,48 @@ describe('refund execution', () => {
     const o = await paid('collection', 6, 'pi_demo_dbl');
     await refundOrder(o.id, o.total_pence, 'full', null);
     await expect(refundOrder(o.id, 1, 'again', null)).rejects.toThrow(/Refund must be/);
+  });
+});
+
+describe('customer cancellation (only before the restaurant accepts)', () => {
+  it('cancels a paid, unaccepted order and refunds everything including the 99p', async () => {
+    const o = await paid('collection', 6, 'pi_demo_cc1');
+    const out = await cancelOrderByCustomer(o.id, o.customer_id);
+    expect(out.status).toBe('cancelled');
+    expect(out.payment_status).toBe('refunded');
+    expect(out.refunded_service_fee_pence).toBe(99);
+  });
+  it('honours the admin policy: when the 99p is not refundable on customer cancel, it is kept', async () => {
+    const admin = await sessionFor(DEMO_ACCOUNTS.admin);
+    await applySettingsChange(admin.userId, { service_fee_refund_on_customer_cancel: false }, 'policy');
+    const o = await paid('collection', 6, 'pi_demo_cc2');
+    const out = await cancelOrderByCustomer(o.id, o.customer_id);
+    expect(out.refunded_service_fee_pence).toBe(0);
+    expect(out.refunded_pence).toBe(o.total_pence - 99);
+  });
+  it('refuses once the restaurant has accepted, for another customer\'s order, and for unpaid orders', async () => {
+    const accepted = await paid('collection', 6, 'pi_demo_cc3');
+    await updateOrderStatus(accepted.id, 'accepted', await owner(), { readyInMinutes: 20 });
+    await expect(cancelOrderByCustomer(accepted.id, accepted.customer_id)).rejects.toThrow(/before the restaurant accepts/);
+    const mine = await paid('collection', 6, 'pi_demo_cc4');
+    await expect(cancelOrderByCustomer(mine.id, 'someone-else')).rejects.toThrow(/not found/i);
+    const unpaid = await place('collection');
+    await expect(cancelOrderByCustomer(unpaid.id, unpaid.customer_id)).rejects.toThrow(/before the restaurant accepts/);
+  });
+  it('cannot be cancelled twice (no double refund)', async () => {
+    const o = await paid('collection', 6, 'pi_demo_cc5');
+    await cancelOrderByCustomer(o.id, o.customer_id);
+    await expect(cancelOrderByCustomer(o.id, o.customer_id)).rejects.toThrow();
+    expect((await reload(o.id)).refunded_pence).toBe(o.total_pence);
+  });
+  it('a failed Stripe refund puts the order back so nothing is lost', async () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_mock0000000000000000';
+    const o = await paid('collection', 6, 'pi_real_cc6');
+    __setStripeForTests({ refunds: { create: vi.fn().mockRejectedValue(new Error('stripe down')) } });
+    await expect(cancelOrderByCustomer(o.id, o.customer_id)).rejects.toThrow(/stripe down/);
+    const after = await reload(o.id);
+    expect(after.status).toBe('awaiting_restaurant');
+    expect(after.refunded_pence).toBe(0);
   });
 });
 

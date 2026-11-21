@@ -39,7 +39,7 @@ export function Summary({ res, loading }: { res: QuoteResult | null; loading: bo
       {row('Food subtotal', fmt(q.subtotal_pence))}
       {q.discount_pence > 0 && row(q.discount_label ?? 'Discount', `−${fmt(q.discount_pence)}`, 'font-medium text-ok')}
       {q.delivery_fee_pence > 0 && row('Delivery (set by restaurant)', fmt(q.delivery_fee_pence))}
-      {q.tip_pence > 0 && row('Tip (goes to the restaurant)', fmt(q.tip_pence))}
+      {q.tip_pence > 0 && row('Tip (goes to the restaurant and its team)', fmt(q.tip_pence))}
       {q.service_fee_pence > 0 && row('FeastQuarter service fee', fmt(q.service_fee_pence))}
       <div className="flex justify-between border-t border-line pt-3 font-display text-xl font-semibold text-navy"><dt>Total</dt><dd>{fmt(q.total_pence)}</dd></div>
       <p className="text-xs text-muted">The total includes a fixed {fmt(q.service_fee_pence)} FeastQuarter service fee (it supports the platform and is not shared with the restaurant). No card surcharge, no hidden extras.</p>
@@ -96,7 +96,7 @@ export function BasketView() {
               <input value={prefs.postcode} onChange={(e) => setPrefs({ postcode: e.target.value.toUpperCase() })} placeholder="BD5 0AA" autoComplete="postal-code" className="mt-1 w-full rounded-xl border border-line px-3 py-2.5 text-base font-normal focus:border-navy focus:outline-none focus:ring-2 focus:ring-gold/60" />
             </label>
           )}
-          <fieldset className="mt-3"><legend className="text-sm font-semibold text-navy">Add a tip <span className="font-normal text-muted">(optional — goes to the restaurant)</span></legend>
+          <fieldset className="mt-3"><legend className="text-sm font-semibold text-navy">Add a tip <span className="font-normal text-muted">(optional — goes to the restaurant and its team, including drivers)</span></legend>
             <div className="mt-1.5 grid grid-cols-4 gap-1.5">{[0, 100, 200, 300].map((t) => <button key={t} type="button" aria-pressed={prefs.tip === t} onClick={() => setPrefs({ tip: t })} className={clsx('rounded-lg border py-2 text-sm font-semibold', prefs.tip === t ? 'border-navy bg-navy text-white' : 'border-line text-navy hover:bg-navy-100')}>{t === 0 ? 'None' : fmt(t)}</button>)}</div></fieldset>
           <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); setPrefs({ promo: promo.trim().toUpperCase() }); }}>
             <label className="sr-only" htmlFor="promo">Promo code</label>

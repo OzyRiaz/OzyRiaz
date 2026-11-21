@@ -10,7 +10,7 @@ import { getDb } from '@/lib/db';
 import type { FormState } from '@/lib/form';
 import { parsePostcode } from '@/lib/postcode';
 import { cancelMembership, startMembershipCheckout } from '@/lib/services/membership';
-import { createOrder, createPaymentSession, markOrderPaid, OrderError } from '@/lib/services/orders';
+import { cancelOrderByCustomer, createOrder, createPaymentSession, markOrderPaid, OrderError } from '@/lib/services/orders';
 import { buildQuote, QuoteError, type Quote } from '@/lib/services/quote';
 import { priceLine } from '@/lib/pricing';
 import { notify } from '@/lib/services/notify';
@@ -164,6 +164,17 @@ export async function deleteAccountAction(_: FormState, fd: FormData): Promise<F
   const { logoutAction } = await import('@/lib/auth/actions');
   await logoutAction();
   return undefined;
+}
+
+/** Customer cancels a paid order that the restaurant has not accepted yet (full refund per the admin policy). */
+export async function cancelOrderAction(_: FormState, fd: FormData): Promise<FormState> {
+  const s = await requireSession('/orders');
+  const rl = rateLimit(`cancelorder:${s.userId}`, 10, 60 * 60_000);
+  if (!rl.ok) return { error: TOO_MANY(rl.retryAfterSec) };
+  const id = String(fd.get('order') ?? '');
+  try { await cancelOrderByCustomer(id, s.userId); } catch (e) { if (e instanceof OrderError) return { error: e.message }; return { error: 'We could not cancel this order just now. Please try again or contact support.' }; }
+  revalidatePath(`/orders/${id}`);
+  return { ok: 'Order cancelled. Your refund is on its way and can take 5–10 working days to appear.' };
 }
 
 /** Customer asks for a refund on a paid order. Creates a support ticket linked to the order for admin review (no automatic refund). */

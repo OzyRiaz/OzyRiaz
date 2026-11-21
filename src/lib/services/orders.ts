@@ -87,7 +87,7 @@ export async function createPaymentSession(order: Order, customerEmail: string):
       product_data: { name: l.name, ...(l.options.length ? { description: l.options.map((o) => o.choice).join(', ') } : {}) },
     },
   }));
-  if (order.tip_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.tip_pence, product_data: { name: 'Tip (goes to the restaurant)' } } });
+  if (order.tip_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.tip_pence, product_data: { name: 'Tip (goes to the restaurant and its team)' } } });
   if (order.delivery_fee_pence > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.delivery_fee_pence, product_data: { name: 'Delivery fee (set by restaurant)' } } });
   // FeastQuarter customer service fee: one line, shown once. Session creation is idempotent per order, so retries never add it twice.
   if ((order.service_fee_pence ?? 0) + (order.service_fee_vat_pence ?? 0) > 0 && (order.service_fee_pence ?? 0) > 0) line_items.push({ quantity: 1, price_data: { currency: 'gbp', unit_amount: order.service_fee_pence, product_data: { name: 'FeastQuarter service fee' } } });
@@ -193,6 +193,30 @@ export async function updateOrderStatus(orderId: string, to: OrderStatus, actor:
   };
   await notify({ kind: `order_${to}`, to: customer?.email, subject: `Order ${order.reference}: ${labelFor(to, order.fulfilment)}`, body: `${msg[to] ?? `Your order status is now "${labelFor(to, order.fulfilment)}".`} Track it: ${appUrl()}/orders/${order.id}` });
   return updated;
+}
+
+/**
+ * Customer cancels their own PAID order, only while the restaurant has not yet accepted it.
+ * The status flip is a conditional write, so a restaurant accepting at the same moment wins or loses cleanly (never both).
+ * The refund follows the admin setting `service_fee_refund_on_customer_cancel` (default: the 99p is refunded too).
+ */
+export async function cancelOrderByCustomer(orderId: string, customerId: string): Promise<Order> {
+  const db = await getDb();
+  const order = await db.get<Order>('orders', { id: orderId });
+  if (!order || order.customer_id !== customerId) throw new OrderError('Order not found');
+  if (order.payment_status !== 'paid' || order.status !== 'awaiting_restaurant') throw new OrderError('This order can only be cancelled before the restaurant accepts it. Please contact the restaurant or request a refund instead.');
+  const now = new Date().toISOString();
+  const [claimed] = await db.update<Order>('orders', { id: order.id, status: 'awaiting_restaurant', payment_status: 'paid' }, { status: 'cancelled', rejection_reason: 'Cancelled by the customer', history: [...order.history, { status: 'cancelled', at: now, by: 'customer' }] });
+  if (!claimed) throw new OrderError('The restaurant has just accepted this order, so it can no longer be cancelled here. Please contact the restaurant.');
+  try {
+    await refundOrder(order.id, order.total_pence - order.refunded_pence, 'Cancelled by the customer before acceptance', customerId, { kind: 'customer_cancel' });
+  } catch (e) {
+    await db.update('orders', { id: order.id, status: 'cancelled' }, { status: 'awaiting_restaurant', rejection_reason: null, history: order.history }); // refund failed: put the order back, nothing lost
+    throw e;
+  }
+  const restaurant = await db.get<Restaurant>('restaurants', { id: order.restaurant_id });
+  await notify({ kind: 'order_cancelled_customer', to: restaurant?.email, subject: `Order ${order.reference} was cancelled by the customer`, body: `The customer cancelled order ${order.reference} before you accepted it. No action is needed; it has been refunded and removed from your queue.` });
+  return (await db.get<Order>('orders', { id: order.id }))!;
 }
 
 export type RefundKind = 'full' | 'partial' | 'declined' | 'customer_cancel' | 'timeout';

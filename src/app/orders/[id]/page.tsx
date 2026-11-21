@@ -4,7 +4,8 @@ import { OrderTracker } from '@/components/OrderTracker';
 import { PrintButton } from '@/components/PrintButton';
 import { ReorderButton } from '@/components/ReorderButton';
 import { ActionForm } from '@/components/ActionForm';
-import { requestRefundAction } from '@/app/actions/customer';
+import { cancelOrderAction, requestRefundAction } from '@/app/actions/customer';
+import { getSettings } from '@/lib/services/settings';
 import { Textarea } from '@/components/ui';
 import { Submit } from '@/components/ActionForm';
 import { Badge, Card, Container, Notice } from '@/components/ui';
@@ -69,6 +70,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </dl>
           <p className="mt-3 text-xs text-muted">Placed {new Date(o.created_at).toLocaleString('en-GB')}{o.paid_at ? ` · Paid ${new Date(o.paid_at).toLocaleString('en-GB')}` : ''}. Prices include any VAT the restaurant charges; this is not a VAT invoice.</p>
         </Card>
+        {o.payment_status === 'paid' && o.status === 'awaiting_restaurant' && (
+          <Card className="no-print p-5"><h2 className="font-display text-lg font-semibold text-navy">Changed your mind?</h2>
+            <p className="mt-1 text-sm text-muted">You can cancel until the restaurant accepts your order. {(await getSettings()).service_fee_refund_on_customer_cancel ? `You will be refunded in full, including the ${fmt(o.service_fee_pence ?? 0)} FeastQuarter service fee.` : `You will be refunded everything except the ${fmt(o.service_fee_pence ?? 0)} FeastQuarter service fee.`}</p>
+            <ActionForm action={cancelOrderAction} className="mt-3"><input type="hidden" name="order" value={o.id} /><Submit variant="outline">Cancel this order</Submit></ActionForm></Card>)}
         {['paid', 'partially_refunded'].includes(o.payment_status) && o.refunded_pence < o.total_pence && (
           <Card className="no-print p-5"><details><summary className="cursor-pointer font-semibold text-navy">Problem with this order? Request a refund</summary>
             <p className="mt-2 text-sm text-muted">Contact the restaurant first for late or incorrect food{r.phone ? ` (${r.phone})` : ''}. If it isn&apos;t resolved, tell us what happened and we&apos;ll review it. Your statutory rights are not affected.</p>
