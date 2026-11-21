@@ -23,12 +23,14 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 - A new £50.99 order (£50.00 food + 99p service fee) was paid through the webhook, rejected by the restaurant and shown as Refunded in Stripe.
 - Opening hours are enforced in live mode: a restaurant outside its hours cannot take orders (hours 00:00–23:59 leave a one-minute gap at 23:59).
 
+**Supabase security check (21 Nov 2026):** the advisor reported no errors; RLS is on for every table. Applied `0008_security_hardening` (trigger functions no longer callable via the public API; fixed search paths). Remaining by design: `order_refunds`/`stripe_events` are server-only (RLS on, no policies); `is_admin()`/`is_staff_of()` stay callable because the security rules use them. Still to do in the Supabase dashboard: enable leaked-password protection (Authentication → Password security; may need a paid plan).
+
 ## 1. Blockers before the first five restaurants can trade
 | # | Blocker | Owner |
 |---|---|---|
 | 1 | **Real end-to-end test in Stripe sandbox + Supabase**: onboard test restaurant → order → webhook marks paid → application fee = 10% food → accept → payout; refund (full/partial) incl. fee refund; decline→refund; dispute event; subscription off. *Never done against real Stripe in this codebase's tests (all mocked).* | Dev + you |
 | 2 | ~~Merge the laptop's Accounts v2 change~~ **Done 20 Nov 2026** (commit d820a9b, merged; typecheck/tests pass; onboarding re-run in a real sandbox). `tests/connect.test.ts` on the laptop is still untracked. | You/laptop Claude Code |
-| 3 | ~~Apply migrations 0004–0007~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
+| 3 | ~~Apply migrations 0004–0008~~ **Done 19 Nov 2026** via `supabase/upgrade-0004-to-0007.sql` on the test Supabase project. Still to do: run `npm run live:check`, and repeat on any separate production project. | You |
 | 4 | **Legal/commercial:** solicitor-reviewed customer terms, restaurant partner agreement (commission, refunds, disputes, drivers), privacy policy, allergen position, complaints process. Current pages are **placeholders**. | Solicitor |
 | 5 | **Tax:** accountant sign-off on VAT treatment of the 10% commission and of the marketplace model (see §3). | Accountant |
 | 6 | **Business entity + business bank + Stripe account activation** (live mode, KYC/KYB, Connect platform review). Live keys need your explicit authorisation. | You |

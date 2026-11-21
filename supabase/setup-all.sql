@@ -431,3 +431,12 @@ create index if not exists order_refunds_order_idx on public.order_refunds(order
 
 alter table public.order_refunds enable row level security;
 -- Server (service role) only. Customers see refunds through their order page, which is rendered server-side.
+
+-- ===== 0008_security_hardening =====
+-- 0008: security hardening found by the Supabase security advisor. Safe to re-run. No data is touched.
+-- Trigger functions never need to be callable through the public API.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+-- Fix the search path on the column-protection trigger functions.
+alter function public.protect_profile_columns() set search_path = public;
+alter function public.protect_restaurant_columns() set search_path = public;
