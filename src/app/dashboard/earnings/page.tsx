@@ -27,7 +27,7 @@ export default async function Earnings() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Paid orders" value={String(summary.orders)} /><Stat label="Food sales" value={fmt(summary.food_sales_pence)} /><Stat label="Delivery charges" value={fmt(summary.delivery_pence)} sub="Yours — no commission" /><Stat label="Gross customer payments" value={fmt(summary.gross_pence)} sub={summary.tips_pence ? `food + delivery + ${fmt(summary.tips_pence)} tips (excludes FeastQuarter's service fee)` : 'Food + delivery (excludes FeastQuarter\'s service fee)'} />
           <Stat label="FeastQuarter commission" value={fmt(summary.commission_pence)} sub="Flat rate on food only. Standard card processing is covered by this commission — no other fees." /><Stat label="Refunds" value={fmt(summary.refunded_pence)} />
-          <div className="col-span-2"><Stat label="Customer service fees (not yours)" value={fmt(serviceFees)} sub="Paid by customers to FeastQuarter. Not part of your earnings and never deducted from them." /></div>
+          <div className="col-span-2"><Stat label="Customer fee (paid to FeastQuarter, not you)" value={fmt(serviceFees)} sub="The fixed fee customers pay on each order. It is not part of your earnings and is never deducted from them." /></div>
           <div className="col-span-2"><Stat tone="gold" label="Estimated earnings" value={fmt(summary.net_pence)} sub="ESTIMATE from your orders — not the same as money in your bank. See Stripe figures below." /></div>
         </div></section>
 
