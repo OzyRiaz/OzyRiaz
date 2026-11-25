@@ -10,15 +10,20 @@ const paidStates = new Set(['paid', 'partially_refunded', 'refunded', 'disputed'
  */
 export function refundParts(o: Order) {
   const comp = (o.refunded_food_pence ?? 0) + (o.refunded_delivery_pence ?? 0) + (o.refunded_tip_pence ?? 0) + (o.refunded_service_fee_pence ?? 0);
-  const eff = effectiveCommission(o);
-  if (comp === 0 && o.refunded_pence > 0) {
-    const f = o.refunded_pence / Math.max(o.total_pence, 1);
-    const commission = Math.round(eff * f), service = Math.round((o.service_fee_pence ?? 0) * f);
-    return { commission, service, restaurant: o.refunded_pence - commission - service };
+  const eff = effectiveCommission(o), svcTotal = o.service_fee_pence ?? 0;
+  let commission = o.commission_refunded_pence ?? 0, service = o.refunded_service_fee_pence ?? 0;
+  let restaurant = (o.refunded_food_pence ?? 0) + (o.refunded_delivery_pence ?? 0) + (o.refunded_tip_pence ?? 0) - commission;
+  // Any refunded money NOT broken down by the app (refunds made before component tracking existed, or issued directly in the
+  // Stripe dashboard) is shared out proportionally, so the three parts always add up to the amount actually refunded.
+  const residual = Math.max(0, o.refunded_pence - comp);
+  if (residual > 0) {
+    const f = residual / Math.max(o.total_pence, 1);
+    const c = Math.min(Math.max(0, eff - commission), Math.round(eff * f)), sv = Math.min(Math.max(0, svcTotal - service), Math.round(svcTotal * f));
+    commission += c; service += sv; restaurant += residual - c - sv;
   }
-  const commission = o.commission_refunded_pence ?? 0, service = o.refunded_service_fee_pence ?? 0;
-  return { commission, service, restaurant: (o.refunded_food_pence ?? 0) + (o.refunded_delivery_pence ?? 0) + (o.refunded_tip_pence ?? 0) - commission };
+  return { commission, service, restaurant };
 }
+
 /** Commission FeastQuarter keeps on an order after refunds (food-only; incl. any VAT element). */
 export const commissionKept = (o: Order) => Math.max(0, effectiveCommission(o) - refundParts(o).commission);
 /** Service fee FeastQuarter keeps after refunds (incl. any VAT element). */

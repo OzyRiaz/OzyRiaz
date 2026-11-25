@@ -6,7 +6,7 @@ import { canTransition, labelFor, STATUS_LABEL } from '../order-state';
 import type { BasketLineInput } from '../pricing';
 import { getStripe } from '../stripe';
 import type { Fulfilment, Order, OrderStatus, Profile, Promotion, Restaurant, Session, Transaction } from '../types';
-import { allocateRefund } from '../refunds';
+import { allocateRefund, remainingComponents } from '../refunds';
 import { getSettings } from './settings';
 import { notify, sendSms } from './notify';
 import { buildQuote, QuoteError } from './quote';
@@ -246,7 +246,12 @@ export async function refundOrder(orderId: string, amountPence: number, reason: 
     } else {
       b = allocateRefund(order, { mode: 'amount', amountPence, includeServiceFee: opts.includeServiceFee });
     }
-  } catch { throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`); }
+  } catch {
+    const rc = remainingComponents(order), exService = rc.food + rc.delivery + rc.tip;
+    throw new OrderError(exService < remaining
+      ? `Refund must be between 1p and ${fmt(exService)} (the ${fmt(rc.service)} FeastQuarter service fee is only refunded with the full remaining ${fmt(remaining)})`
+      : `Refund must be between 1p and ${fmt(remaining)}`);
+  }
   if (b.amount_pence <= 0 || b.amount_pence > remaining || (kind !== 'customer_cancel' && (amountPence <= 0 || amountPence > remaining))) throw new OrderError(`Refund must be between 1p and ${fmt(remaining)}`);
   const amount = b.amount_pence;
   const refunded = order.refunded_pence + amount;

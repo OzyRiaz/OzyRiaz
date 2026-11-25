@@ -197,6 +197,11 @@ describe('refund execution', () => {
     expect((await reload(o.id)).payment_status).toBe('refunded');
   });
 
+  it('a partial amount that would dip into the 99p gets a clear message, not a confusing limit', async () => {
+    const o = await paid('collection', 6, 'pi_demo_msg');
+    await expect(refundOrder(o.id, o.total_pence - 50, 'too much', null)).rejects.toThrow(/service fee is only refunded with the full remaining/);
+  });
+
   it('refund cannot exceed what is left (no double refund)', async () => {
     const o = await paid('collection', 6, 'pi_demo_dbl');
     await refundOrder(o.id, o.total_pence, 'full', null);
@@ -243,6 +248,28 @@ describe('customer cancellation (only before the restaurant accepts)', () => {
     const after = await reload(o.id);
     expect(after.status).toBe('awaiting_restaurant');
     expect(after.refunded_pence).toBe(0);
+  });
+});
+
+describe('refund accounting always adds up', () => {
+  it('a refund issued directly in Stripe after an in-app partial refund is still fully accounted for', async () => {
+    const o = await paid('delivery', 6, 'pi_demo_ext');
+    await refundOrder(o.id, 500, 'Missing item', null); // in-app partial: food 5.00
+    await reconcileRefund('pi_demo_ext', 1500, 're_dash'); // someone refunds £10 more in the Stripe dashboard
+    const after = await reload(o.id);
+    expect(after.refunded_pence).toBe(1500);
+    const { refundParts } = await import('@/lib/services/reports');
+    const p = refundParts(after);
+    expect(p.commission + p.service + p.restaurant).toBe(after.refunded_pence); // nothing lost or invented
+    expect(p.commission).toBeGreaterThan(50); // more than just the 50p from the in-app refund
+    expect(p.service).toBeLessThanOrEqual(99);
+  });
+  it('legacy orders (refunded before components existed) still split proportionally and add up', async () => {
+    const o = await paid('collection', 6, 'pi_demo_legacy');
+    const { refundParts } = await import('@/lib/services/reports');
+    const legacy = { ...o, refunded_pence: 1000, refunded_food_pence: 0, refunded_delivery_pence: 0, refunded_tip_pence: 0, refunded_service_fee_pence: 0, commission_refunded_pence: 0 };
+    const p = refundParts(legacy);
+    expect(p.commission + p.service + p.restaurant).toBe(1000);
   });
 });
 
