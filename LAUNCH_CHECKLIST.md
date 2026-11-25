@@ -1,6 +1,8 @@
 # FeastQuarter — Launch checklist (business and legal steps)
 
-Status: planning. Nothing here has been done, paid for or submitted. Written 21 Nov 2026.
+Status (25 Nov 2026): company registration and the Tide business account are **in progress** (owner is doing these). Everything else below is not started. Written 21 Nov 2026.
+
+Related: `HOSTING.md` (Netlify test-site guide), `docs/SOLICITOR_BRIEF.md` and `docs/ACCOUNTANT_BRIEF.md` (drafts to hand to the professionals).
 Items marked **(checked)** were verified against the linked source on that date; everything else is typical practice, so confirm it with the relevant provider. This is not legal, tax or financial advice.
 
 ## Before you start (decisions)
@@ -9,13 +11,13 @@ Items marked **(checked)** were verified against the linked source on that date;
 - [ ] Company name: check "FeastQuarter" is free on the Companies House name search, and that no one holds the trademark or domain.
 - [ ] A UK address to register the company at (ask the accountant: home address or business address service).
 
-## 1. Register the company
+## 1. Register the company  — IN PROGRESS (owner, with Tide)
 - [ ] **Verify identity first (checked).** Mandatory for new directors and people with significant control since 18 Nov 2025, online via GOV.UK One Login; you receive a personal code. Formation agents can do it for you.
 - [ ] **Register online (checked).** Companies House online fee is £100 (was £50 before 1 Feb 2026); usually completed within a day. https://www.gov.uk/limited-company-formation/register-your-company
 - [ ] Ask the accountant for the right business activity (SIC) code for an online ordering platform.
 - [ ] Keep the certificate of incorporation and company number (Stripe, the bank and Uber all ask for them).
 
-## 2. Business bank account (after the company exists)
+## 2. Business bank account (after the company exists) — IN PROGRESS (Tide)
 - [ ] Typical needs: ID for every director, proof of address, company number, a description of the business, expected turnover. Compare fees yourself.
 - [ ] Never email the sort code / account number to anyone except the bank and Stripe.
 

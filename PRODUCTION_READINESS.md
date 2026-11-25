@@ -25,6 +25,14 @@ Legend: ✅ implemented & automatically tested · 🔧 implemented, needs extern
 
 **Supabase security check (21 Nov 2026):** the advisor reported no errors; RLS is on for every table. Applied `0008_security_hardening` (trigger functions no longer callable via the public API; fixed search paths). Remaining by design: `order_refunds`/`stripe_events` are server-only (RLS on, no policies); `is_admin()`/`is_staff_of()` stay callable because the security rules use them. Still to do in the Supabase dashboard: enable leaked-password protection (Authentication → Password security; may need a paid plan).
 
+**Review and checks (25 Nov 2026):**
+- Code review of the fee/refund/cancel/offline/founding-partner work: two fixes made (refund accounting now always adds up even when a refund is issued directly in Stripe or before component tracking; clearer message when a partial refund would dip into the 99p). Tests added (176 pass).
+- Every server action and API route checked for a login/role/secret check; none missing. Repository secret scan (tracked files and history): only obvious fake test keys. `npm audit` (production dependencies): 0 vulnerabilities.
+- Supabase advisors: no errors. Security: same deliberate items as before plus leaked-password protection (dashboard toggle). Performance: unindexed foreign keys (12), RLS initplan (7), multiple permissive policies (30), unused indexes (3) — all INFO/WARN, irrelevant at launch size (the app reads/writes with the server key, which bypasses RLS); revisit when volume grows.
+- `scripts/live-check.mjs` now also verifies migrations 0007 and 0009, the `order_refunds` table, `CRON_SECRET` and the site URL.
+- New documents: `HOSTING.md` (Netlify test-mode steps), `docs/SOLICITOR_BRIEF.md`, `docs/ACCOUNTANT_BRIEF.md`.
+- Status: company registration and Tide business account in progress (owner).
+
 ## 1. Blockers before the first five restaurants can trade
 | # | Blocker | Owner |
 |---|---|---|

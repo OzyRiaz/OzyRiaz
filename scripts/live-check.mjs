@@ -16,13 +16,15 @@ for (const [k, v] of [['NEXT_PUBLIC_SUPABASE_URL', url], ['NEXT_PUBLIC_SUPABASE_
 if (url && svc) {
   try {
     const db = createClient(url, svc, { auth: { persistSession: false } });
-    const tables = ['profiles', 'restaurants', 'menu_items', 'orders', 'memberships', 'platform_settings', 'stripe_events', 'transactions'];
+    const tables = ['profiles', 'restaurants', 'menu_items', 'orders', 'memberships', 'platform_settings', 'stripe_events', 'transactions', 'order_refunds'];
     for (const t of tables) { const { error } = await db.from(t).select('*', { head: true, count: 'exact' }).limit(1); error ? bad(`table ${t}`, error.message) : ok(`table ${t}`); }
     const { data } = await db.from('platform_settings').select('*').eq('id', 'main').maybeSingle();
     if (!data) bad('platform settings row', 'missing — did the setup SQL run?');
     else {
       ok('platform settings row', `commission ${(data.commission_bps ?? 'MISSING') === 'MISSING' ? 'MISSING' : data.commission_bps / 100 + '%'} flat (delivery + collection) / Plus £${(data.membership_price_pence / 100).toFixed(2)}`);
       data.commission_bps === undefined ? bad('migration 0004 applied', 'commission_bps column missing — run supabase/migrations/0004_launch_model.sql') : ok('migration 0004 applied');
+      data.customer_service_fee_pence === undefined ? bad('migration 0007 applied', 'customer_service_fee_pence missing — run supabase/migrations/0007_service_fee_refunds.sql') : ok('migration 0007 applied', `customer service fee ${(data.customer_service_fee_pence / 100).toFixed(2)} GBP`);
+      const fp = await db.from('restaurants').select('founding_partner').limit(1); fp.error ? bad('migration 0009 applied', 'founding_partner column missing — run supabase/migrations/0009_founding_partner.sql') : ok('migration 0009 applied');
       data.feature_plus_enabled === false ? ok('FeastQuarter Plus feature flag is OFF (launch default)') : bad('FeastQuarter Plus feature flag is OFF', 'it is ON — only enable after the owner authorises membership');
       data.platform_vat_registered === false ? ok('platform_vat_registered = false') : bad('platform_vat_registered = false', String(data.platform_vat_registered));
     }
@@ -50,6 +52,8 @@ else {
   } catch (e) { bad('Stripe API reachable', e.message); }
 }
 env('STRIPE_WEBHOOK_SECRET').startsWith('whsec_') ? ok('STRIPE_WEBHOOK_SECRET set') : bad('STRIPE_WEBHOOK_SECRET set', 'add after creating the webhook endpoint');
+(env('CRON_SECRET').length >= 16) ? ok('CRON_SECRET set (16+ characters)') : ok('CRON_SECRET', 'not set here — REQUIRED on the hosted site (16+ characters) for the order-timeout and daily-summary jobs');
+/^https:\/\//.test(env('NEXT_PUBLIC_APP_URL')) ? ok('NEXT_PUBLIC_APP_URL is https') : ok('NEXT_PUBLIC_APP_URL', `"${env('NEXT_PUBLIC_APP_URL') || 'unset'}" — fine locally; on the hosted site set it to the https address`);
 env('RESEND_API_KEY') ? ok('Email provider key set') : ok('Email provider', 'not configured — emails will be logged as "skipped" (fine for now)');
 
 for (const [s, n, d] of results) console.log(`${s === 'PASS' ? '✓' : '✗'} ${n}${d ? ' — ' + d : ''}`);

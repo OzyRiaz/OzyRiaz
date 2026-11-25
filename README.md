@@ -3,6 +3,8 @@
 Multi-restaurant food-ordering marketplace. Launching with ~5 independent takeaways in **Bradford**; Leeds, Manchester and other UK cities are **database configuration** (Admin → Locations), not code.
 Next.js 16 (App Router) · TypeScript · Tailwind 4 · Supabase (Postgres/Auth/Storage) · Stripe Connect · Netlify.
 
+> Guides: [`HOSTING.md`](./HOSTING.md) (put it online in test mode) · [`LAUNCH_CHECKLIST.md`](./LAUNCH_CHECKLIST.md) (company, bank, tax, legal) · briefings for the [solicitor](./docs/SOLICITOR_BRIEF.md) and [accountant](./docs/ACCOUNTANT_BRIEF.md).
+>
 > Status, honestly: see [`PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md) for what is verified, what is mocked, and what blocks launch. **Do not take real payments until its blockers are closed.**
 
 ## Launch commercial model
