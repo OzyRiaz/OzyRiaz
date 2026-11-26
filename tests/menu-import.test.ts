@@ -58,10 +58,12 @@ describe('commit', () => {
 });
 
 describe('preview', () => {
-  it('uses the free parser for text and refuses files while AI is off', async () => {
+  it('uses the free parser for text; in demo mode a file gives a labelled sample result', async () => {
     const { r } = await karahi();
     expect((await previewMenuImport({ restaurantId: r.id, userId: 'u1', text: SAMPLE_MENU })).provider).toBe('parser');
-    await expect(previewMenuImport({ restaurantId: r.id, userId: 'u1', file: { mimeType: 'application/pdf', bytes: Buffer.from('%PDF-1.4 xxxxxxxxxx') } })).rejects.toThrow(/not switched on/);
+    const d = await previewMenuImport({ restaurantId: r.id, userId: 'u1', file: { mimeType: 'application/pdf', bytes: Buffer.from('%PDF-1.4 xxxxxxxxxx') } });
+    expect(d.warnings[0]).toMatch(/DEMONSTRATION ONLY/); // demo mode: canned, clearly labelled, no AI call
+    await expect(previewMenuImport({ restaurantId: r.id, userId: 'u1', file: { mimeType: 'application/pdf', bytes: Buffer.from('MZ not a pdf at all') } })).rejects.toThrow();
   });
   it('sniffs real file types, not declared ones', () => {
     expect(sniffFile(Buffer.from('%PDF-1.7 aaaaaaaa'))).toEqual({ kind: 'pdf' });

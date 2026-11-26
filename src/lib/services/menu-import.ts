@@ -1,4 +1,6 @@
+import { isDemo } from '../config';
 import { getDb } from '../db';
+import { SAMPLE_MENU } from '../menu-import/sample';
 import { aiAvailable, extractMenuWithClaude, MenuImportError, type AiInput } from '../menu-import/ai';
 import { CommitSchema, LIMITS, type ImportedMenu } from '../menu-import/schema';
 import { parseMenuText } from '../menu-import/text-parser';
@@ -29,6 +31,13 @@ export async function previewMenuImport(req: PreviewRequest, extract: typeof ext
 
   let input: AiInput | null = null;
   if (req.file) {
+    if (!aiAvailable() && isDemo) {
+      // Demonstration mode only: no AI is called. Shows the screen flow with a canned sample result, clearly labelled.
+      const kind = sniffFile(req.file.bytes);
+      if (!kind) throw new MenuImportError('Use a JPG, PNG or WebP photo, or a PDF.');
+      const m = parseMenuText(SAMPLE_MENU);
+      return { ...m, source: kind.kind === 'pdf' ? 'pdf' : 'image', warnings: ['DEMONSTRATION ONLY: this is a sample result, not read from your file. In the live app, the AI reads your own menu here.', ...m.warnings] };
+    }
     if (!aiAvailable()) throw new MenuImportError('Reading photos and PDFs is not switched on yet. Please paste your menu as text for now.');
     if (req.file.bytes.length > MAX_FILE_BYTES) throw new MenuImportError('That file is too big (limit 4.5 MB). Use a smaller photo, or a screenshot.');
     const kind = sniffFile(req.file.bytes);
