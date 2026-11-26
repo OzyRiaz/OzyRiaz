@@ -77,3 +77,6 @@ Demo mode: fictional restaurants, in-memory data, simulated payment page (same s
 ## Architecture notes
 `src/lib` pure domain logic (`pricing.ts`, `postcode.ts`, `order-state.ts`) · `services/` (orders, quote, reconcile, payouts, operations, vat, settings, cities, membership, stripe-webhook, reports, notify, disputes) over a thin `Db` adapter (`db/memory.ts` demo, `db/supabase.ts` live; service-role key server-side only, RLS for direct access in `0002_rls.sql` + later migrations).
 Legacy identifiers kept for compatibility: `bdfeast.*` localStorage keys, `bdf_pc` / `bdf_demo_session` cookies, `STRIPE_MEMBERSHIP_PRICE_ID`, deprecated `commission_delivery_bps/collection_bps` columns (aligned to 1000, unused by code), existing `BDF-` order references.
+
+## Menu import
+Restaurant dashboard → Menu → Import a menu. Paste text (free, no AI) or, if switched on, upload a photo/PDF (Claude reads it). Output is a draft: owner checks every item; items save hidden with allergens unconfirmed. Env: `ANTHROPIC_API_KEY`, `MENU_IMPORT_AI_ENABLED`, `MENU_IMPORT_MODEL`, `MENU_IMPORT_DAILY_LIMIT`. Code: `src/lib/menu-import/`, `src/lib/services/menu-import.ts`.

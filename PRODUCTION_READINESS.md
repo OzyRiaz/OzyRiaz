@@ -98,3 +98,8 @@ Sources: [Osborne Clarke](https://www.osborneclarke.com/insights/uk-government-c
 3. Approve a restaurant (human checks hygiene/food registration) → it completes Stripe onboarding → goes Online.
 4. Place a £1 test order with a real card in **live** mode only after you authorise live keys; refund it; confirm payout/fee records.
 5. Watch the escalation emails and the VAT monitor weekly.
+
+## Menu import (AI)
+- Built and tested in demo mode; AI reading OFF until an API key + spending cap are approved by the owner.
+- Only menu content is sent to the AI provider; no customer data. Add the AI processor to the privacy notice and solicitor list before enabling.
+- Allergens are never auto-confirmed; items save hidden; owner must tick that names/prices were checked.

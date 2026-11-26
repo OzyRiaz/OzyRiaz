@@ -42,6 +42,8 @@ Names only — values come from your own screens. Use "secret"/"contains secret 
 | `ORDER_ESCALATE_MINUTES` / `ORDER_TIMEOUT_MINUTES` / `ORDER_TIMEOUT_GOES_OFFLINE` | `5` / `12` / `true` | no |
 | `COURIER_SUBSIDY_AUTHORISED` | type `false` | no |
 
+**Menu import (optional, OFF by default):** pasting menu text needs nothing. Reading photos/PDFs needs `ANTHROPIC_API_KEY` (secret), `MENU_IMPORT_AI_ENABLED=true`, optionally `MENU_IMPORT_MODEL` and `MENU_IMPORT_DAILY_LIMIT`. It costs money per menu: set a spending limit in the Anthropic console first. Leave unset until you have decided.
+
 **Leave unset for now:** `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_NOTIFY_EMAIL`, `SMS_*`, `TWILIO_*`, `STRIPE_MEMBERSHIP_PRICE_ID`, `DEMO_SESSION_SECRET` (demo mode only).
 
 **Making a CRON_SECRET** (Windows PowerShell, prints a 64-character random value — copy it straight into Netlify):

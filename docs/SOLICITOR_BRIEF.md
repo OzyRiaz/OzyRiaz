@@ -47,3 +47,6 @@ Customer: name, email, phone, saved delivery addresses, order history, support m
 
 ## 6. Documents available
 `README.md` (money model), `PRODUCTION_READINESS.md`, `LAUNCH_CHECKLIST.md`, the current legal placeholders (`src/app/legal/[doc]/page.tsx`), and a demo reel of the restaurant dashboard (sample data only).
+
+## AI menu reading (optional feature, off by default)
+If enabled, uploaded menu photos/PDFs/text are sent to Anthropic's API to extract dishes and prices. No customer personal data is sent. Please advise on privacy notice wording and the restaurant terms (restaurant remains responsible for allergen information).
