@@ -14,6 +14,8 @@ import { getDb } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { ACTIVE, labelFor } from '@/lib/order-state';
 import { createPaymentSession } from '@/lib/services/orders';
+import { PushToggle } from '@/components/PushToggle';
+import { pushConfigured, vapidPublicKey } from '@/lib/services/push';
 import type { Order, Restaurant } from '@/lib/types';
 export const metadata: Metadata = { title: 'Order' };
 export const dynamic = 'force-dynamic';
@@ -47,6 +49,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         {o.refunded_pence > 0 && o.status !== 'rejected' && <Notice tone="green">Refunded {fmt(o.refunded_pence)}.</Notice>}
         {o.payment_status === 'disputed' && <Notice tone="gold">A payment dispute is open on this order.</Notice>}
         {ACTIVE.includes(o.status) || o.status === 'completed' ? <Card className="p-5"><OrderTracker status={o.status} fulfilment={o.fulfilment} live={ACTIVE.includes(o.status)} /></Card> : null}
+        {ACTIVE.includes(o.status) && pushConfigured() && <Card className="p-4"><PushToggle audience="customer" publicKey={vapidPublicKey()} /></Card>}
         {['accepted', 'preparing'].includes(o.status) && o.ready_in_minutes && <Notice tone="navy">The restaurant expects your order to be ready in about <strong>{o.ready_in_minutes} minutes</strong> from {o.accepted_at ? new Date(o.accepted_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'acceptance'}.</Notice>}
         <Card className="p-5">
           <h2 className="font-display text-xl font-semibold text-navy">{o.fulfilment === 'delivery' ? 'Delivery to' : 'Collect from'}</h2>

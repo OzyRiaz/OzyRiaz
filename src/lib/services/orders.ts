@@ -9,6 +9,7 @@ import type { Fulfilment, Order, OrderStatus, Profile, Promotion, Restaurant, Se
 import { allocateRefund, remainingComponents } from '../refunds';
 import { getSettings } from './settings';
 import { notify, sendSms } from './notify';
+import { sendPushToRestaurant, sendPushToUser } from './push';
 import { buildQuote, QuoteError } from './quote';
 import { isOpenNow } from '../hours';
 
@@ -148,6 +149,7 @@ export async function markOrderPaid(orderId: string, p: { paymentIntentId?: stri
   const [customer, restaurant] = await Promise.all([db.get<Profile>('profiles', { id: order.customer_id }), db.get<Restaurant>('restaurants', { id: order.restaurant_id })]);
   await notify({ kind: 'order_confirmation', to: customer?.email, subject: `Order ${order.reference} confirmed`, body: `Thanks ${customer?.full_name ?? ''}! Your order from ${restaurant?.name} (${fmt(order.total_pence)}${order.service_fee_pence ? `, including the ${fmt(order.service_fee_pence)} FeastQuarter service fee` : ''}) has been paid and sent to the restaurant. Track it: ${appUrl()}/orders/${order.id}` });
   void sendSms('restaurant_new_order', restaurant?.phone, `FeastQuarter: new ${order.fulfilment} order ${order.reference} (${fmt(order.total_pence - (order.service_fee_pence ?? 0))}). Open your dashboard to accept.`);
+  await sendPushToRestaurant(order.restaurant_id, { title: 'New order', body: `New ${order.fulfilment} order ${order.reference} (${fmt(order.total_pence - (order.service_fee_pence ?? 0))}). Open to accept.`, url: '/dashboard', tag: `new-order-${order.id}` });
   await notify({ kind: 'restaurant_new_order', to: restaurant?.email, subject: `New FeastQuarter order ${order.reference}`, body: `New ${order.fulfilment} order worth ${fmt(order.total_pence - (order.service_fee_pence ?? 0))}. Open your dashboard to accept or reject: ${appUrl()}/dashboard` });
   return { changed: true, order: claimed[0] };
 }
@@ -191,6 +193,12 @@ export async function updateOrderStatus(orderId: string, to: OrderStatus, actor:
     completed: order.fulfilment === 'delivery' ? 'Your order has been delivered. Enjoy!' : 'Your order has been collected. Enjoy!',
     rejected: `The restaurant couldn't accept your order. Reason: ${opts.reason}. You will be refunded in full.`,
   };
+  const pushMsg: Partial<Record<OrderStatus, string>> = {
+    accepted: `Accepted. Ready in about ${updated.ready_in_minutes ?? 30} minutes.`, preparing: 'Being prepared.',
+    ready: order.fulfilment === 'collection' ? 'Ready for collection.' : 'Ready. Out for delivery shortly.', out_for_delivery: 'Out for delivery.',
+    completed: order.fulfilment === 'delivery' ? 'Delivered. Enjoy!' : 'Collected. Enjoy!', rejected: "The restaurant couldn't accept it. You'll be refunded in full.",
+  };
+  if (pushMsg[to]) await sendPushToUser(order.customer_id, { title: `Order ${order.reference}`, body: pushMsg[to]!, url: `/orders/${order.id}`, tag: `order-${order.id}` });
   await notify({ kind: `order_${to}`, to: customer?.email, subject: `Order ${order.reference}: ${labelFor(to, order.fulfilment)}`, body: `${msg[to] ?? `Your order status is now "${labelFor(to, order.fulfilment)}".`} Track it: ${appUrl()}/orders/${order.id}` });
   return updated;
 }
@@ -215,6 +223,7 @@ export async function cancelOrderByCustomer(orderId: string, customerId: string)
     throw e;
   }
   const restaurant = await db.get<Restaurant>('restaurants', { id: order.restaurant_id });
+  await sendPushToRestaurant(order.restaurant_id, { title: 'Order cancelled', body: `Order ${order.reference} was cancelled by the customer. No action needed.`, url: '/dashboard', tag: `new-order-${order.id}` });
   await notify({ kind: 'order_cancelled_customer', to: restaurant?.email, subject: `Order ${order.reference} was cancelled by the customer`, body: `The customer cancelled order ${order.reference} before you accepted it. No action is needed; it has been refunded and removed from your queue.` });
   return (await db.get<Order>('orders', { id: order.id }))!;
 }

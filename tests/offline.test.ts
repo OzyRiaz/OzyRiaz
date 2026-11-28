@@ -31,7 +31,7 @@ function loadSW() {
   const caches = {
     open: vi.fn(async () => ({ addAll: vi.fn(async (urls: string[]) => { urls.forEach((u) => store.set(u, new Response(`cached:${u}`))); }) })),
     match: vi.fn(async (u: string) => store.get(u)),
-    keys: vi.fn(async () => ['feastquarter-v1', 'feastquarter-v2']), delete: vi.fn(async () => true),
+    keys: vi.fn(async () => ['feastquarter-v1', 'feastquarter-v3']), delete: vi.fn(async () => true),
   };
   const net = { fetch: vi.fn() };
   const self = { addEventListener: (t: string, h: (e: any) => void) => { handlers[t] = h; }, skipWaiting: vi.fn(), clients: { claim: vi.fn() } };
@@ -55,7 +55,7 @@ describe('service worker (public/sw.js)', () => {
     sw.handlers.activate({ waitUntil: (p: Promise<unknown>) => w2.push(p) });
     await Promise.all(w2);
     expect(sw.caches.delete).toHaveBeenCalledWith('feastquarter-v1');
-    expect(sw.caches.delete).not.toHaveBeenCalledWith('feastquarter-v2');
+    expect(sw.caches.delete).not.toHaveBeenCalledWith('feastquarter-v3');
   });
   it('shows the offline page when a page navigation fails with no connection', async () => {
     const sw = loadSW();

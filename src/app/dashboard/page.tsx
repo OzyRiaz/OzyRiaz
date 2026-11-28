@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LiveRefresh } from '@/components/LiveRefresh';
+import { PushToggle } from '@/components/PushToggle';
+import { pushConfigured, vapidPublicKey } from '@/lib/services/push';
 import { Badge, Card, EmptyState, Notice } from '@/components/ui';
 import { requireSession } from '@/lib/auth/session';
 import { getDb } from '@/lib/db';
@@ -27,6 +29,7 @@ export default async function DashboardOrders({ searchParams }: { searchParams: 
   const waiting = active.filter((o) => o.status === 'awaiting_restaurant').length;
   return (
     <div className="space-y-5">
+      {pushConfigured() && <Card className="p-4"><PushToggle audience="restaurant" publicKey={vapidPublicKey()} /></Card>}
       <Card className={clsx('flex flex-wrap items-center justify-between gap-3 p-4', r.accepting_orders === false ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50')}>
         <div><p className="font-display text-lg font-semibold text-navy">{r.accepting_orders === false ? 'You are OFFLINE' : 'You are ONLINE'}</p><p className="text-sm text-muted">{r.accepting_orders === false ? 'Customers cannot place new orders. Orders already paid still need handling.' : 'Customers can order during your opening hours.'}</p></div>
         <div className="flex flex-wrap items-center gap-3"><LiveRefresh pending={waiting} />

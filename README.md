@@ -68,7 +68,7 @@ npm test && npm run typecheck && npm run build
 Demo mode: fictional restaurants, in-memory data, simulated payment page (same server function the webhook calls). Demo restaurants are **never** listed or orderable in live mode. Phone testing: `npm run phone`.
 
 ## Going live (test mode first)
-1. **Supabase:** run `supabase/migrations/0001…0009` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
+1. **Supabase:** run `supabase/migrations/0001…0010` in order (new project: paste `supabase/setup-all.sql` once). Existing project: run only the migrations you haven't (they are additive and idempotent). First admin: register, then `update profiles set role='admin' where email='you@example.com';`.
 2. **Stripe (test):** Connect enabled; keys; two webhook endpoints (above); `npm run live:check`.
 3. **Netlify:** connect the repo, set env vars from `.env.example` (incl. `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`). Scheduled functions in `netlify/functions/`.
 4. **Domain `feastquarter.co.uk`** is intended but not assumed owned: set `NEXT_PUBLIC_APP_URL`, Supabase Auth URLs, Stripe webhook URLs and `EMAIL_FROM` after it is connected.
@@ -80,3 +80,6 @@ Legacy identifiers kept for compatibility: `bdfeast.*` localStorage keys, `bdf_p
 
 ## Menu import
 Restaurant dashboard → Menu → Import a menu. Paste text (free, no AI) or, if switched on, upload a photo/PDF (Claude reads it). Output is a draft: owner checks every item; items save hidden with allergens unconfirmed. Env: `ANTHROPIC_API_KEY`, `MENU_IMPORT_AI_ENABLED`, `MENU_IMPORT_MODEL`, `MENU_IMPORT_DAILY_LIMIT`. Code: `src/lib/menu-import/`, `src/lib/services/menu-import.ts`.
+
+## Push notifications (optional, free)
+Customers get order-step alerts and restaurants get new-order alerts on their phone via web push. Off until `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set (generate with `npx web-push generate-vapid-keys`; the public key is baked in at build time, so redeploy after setting it). Needs migration `0010_push_subscriptions.sql`. People opt in with a button (never auto-prompted); iPhones must first Add to Home Screen. Alerts carry only a short status line and an on-site link. Code: `src/lib/services/push.ts`, `src/app/api/push/subscribe/route.ts`, `src/components/PushToggle.tsx`, `public/sw.js`.

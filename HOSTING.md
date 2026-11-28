@@ -14,7 +14,7 @@ Status: prepared, **not yet done**. Written 25 Nov 2026. Nothing here buys anyth
 - [ ] Netlify login (existing one is fine). Create a **separate team** for FeastQuarter (Netlify → team switcher → "Add new team"). Check Netlify's pricing page for what the free plan allows; do not upgrade without a deliberate decision.
 - [ ] The GitHub login that owns the repository (`OzyRiaz/OzyRiaz`). When Netlify asks which repositories it may access, tick **only** the FeastQuarter repository.
 - [ ] Supabase project `feastquarter` open (Project Settings → API) and the Stripe **sandbox** dashboard open.
-- [ ] Migrations 0001–0009 applied to Supabase (they are, as of 25 Nov 2026). `npm run live:check` on your laptop will confirm.
+- [ ] Migrations 0001–0009 applied to Supabase (they are, as of 25 Nov 2026). **0010 (push notifications) is written but NOT applied yet.** `npm run live:check` on your laptop will confirm.
 
 ## 1. Create the site
 1. In the FeastQuarter team: **Add new project → Import an existing project → GitHub** → choose the repository.
@@ -43,6 +43,8 @@ Names only — values come from your own screens. Use "secret"/"contains secret 
 | `COURIER_SUBSIDY_AUTHORISED` | type `false` | no |
 
 **Menu import (optional, OFF by default):** pasting menu text needs nothing. Reading photos/PDFs needs `ANTHROPIC_API_KEY` (secret), `MENU_IMPORT_AI_ENABLED=true`, optionally `MENU_IMPORT_MODEL` and `MENU_IMPORT_DAILY_LIMIT`. It costs money per menu: set a spending limit in the Anthropic console first. Leave unset until you have decided.
+
+**Push notifications (optional, free, OFF by default):** `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (public), `VAPID_PRIVATE_KEY` (**secret**), `VAPID_SUBJECT` (`mailto:` your email). Make the pair with `npx web-push generate-vapid-keys`. Run migration `0010_push_subscriptions.sql` first. Redeploy after setting the public key (it is built into the site).
 
 **Leave unset for now:** `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_NOTIFY_EMAIL`, `SMS_*`, `TWILIO_*`, `STRIPE_MEMBERSHIP_PRICE_ID`, `DEMO_SESSION_SECRET` (demo mode only).
 

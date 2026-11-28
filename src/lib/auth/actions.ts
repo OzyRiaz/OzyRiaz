@@ -79,6 +79,11 @@ export async function registerAction(_: FormState, fd: FormData): Promise<FormSt
 }
 
 export async function logoutAction() {
+  // Stop this device getting the signed-out user's notifications (shared phones/computers).
+  try {
+    const jar = await cookies(); const dev = jar.get('fq_push_device')?.value;
+    if (dev) { const { getSession } = await import('./session'); const { removeSubscription } = await import('../services/push'); const s = await getSession(); if (s) await removeSubscription(s.userId, { id: dev }); jar.delete('fq_push_device'); }
+  } catch { /* never block sign-out */ }
   if (isDemo) (await cookies()).delete(DEMO_COOKIE);
   else await (await supa()).auth.signOut();
   redirect('/');

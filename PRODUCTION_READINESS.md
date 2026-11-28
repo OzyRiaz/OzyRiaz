@@ -103,3 +103,8 @@ Sources: [Osborne Clarke](https://www.osborneclarke.com/insights/uk-government-c
 - Built and tested in demo mode; AI reading OFF until an API key + spending cap are approved by the owner.
 - Only menu content is sent to the AI provider; no customer data. Add the AI processor to the privacy notice and solicitor list before enabling.
 - Allergens are never auto-confirmed; items save hidden; owner must tick that names/prices were checked.
+
+## Push notifications
+- Built and tested with a fake push service (no real device test yet: do one on an Android phone and an iPhone before relying on it).
+- Opt-in only; private key server-side; messages carry no personal or payment data; failures never block orders; dead devices are removed; sign-out removes the device.
+- Migration 0010 must be applied to Supabase before enabling. Privacy notice needs a line about notifications (see solicitor brief).

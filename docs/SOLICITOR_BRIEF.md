@@ -50,3 +50,6 @@ Customer: name, email, phone, saved delivery addresses, order history, support m
 
 ## AI menu reading (optional feature, off by default)
 If enabled, uploaded menu photos/PDFs/text are sent to Anthropic's API to extract dishes and prices. No customer personal data is sent. Please advise on privacy notice wording and the restaurant terms (restaurant remains responsible for allergen information).
+
+## Push notifications (optional feature, off by default)
+If enabled, users who opt in receive browser/phone notifications (customers: order status; restaurants: new orders). We store a per-device notification address (browser endpoint and keys) linked to the user's account until they turn it off, sign out, or the device stops responding. Messages contain only a short status line and a link, no card or address details. Please advise on privacy-notice wording and consent (opt-in is by an explicit button and the browser's own permission prompt).
